@@ -278,6 +278,32 @@ export class DogCompanion {
     this.leftEar.rotation.z = 0.3 + Math.sin(this.walkCycle * 0.5) * 0.15;
     this.rightEar.rotation.z = -0.3 - Math.sin(this.walkCycle * 0.5) * 0.15;
 
+    // Update name tag to show what pup is doing
+    let status = 'GUARDING';
+    if (nearestTarget && nearestDist < ATTACK_RANGE) {
+      status = 'FIGHTING!';
+    } else if (distToPlayer > FOLLOW_DISTANCE) {
+      status = 'COMING!';
+    }
+    if (this._lastStatus !== status) {
+      this._lastStatus = status;
+      const canvas = this.nameTag.material.map.image;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 256, 64);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.roundRect(8, 8, 240, 48, 8);
+      ctx.fill();
+      ctx.strokeStyle = status === 'FIGHTING!' ? '#ff4444' : '#ff69b4';
+      ctx.lineWidth = 2;
+      ctx.roundRect(8, 8, 240, 48, 8);
+      ctx.stroke();
+      ctx.font = 'bold 24px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = status === 'FIGHTING!' ? '#ff6666' : '#ffb6d5';
+      ctx.fillText(status, 128, 40);
+      this.nameTag.material.map.needsUpdate = true;
+    }
+
     // Name tag always faces camera
     this.nameTag.lookAt(this.player.camera ? this.player.camera.position : this.player.position);
 

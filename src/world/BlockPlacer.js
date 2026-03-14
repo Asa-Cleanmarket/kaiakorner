@@ -89,8 +89,9 @@ export class BlockPlacer {
         this.breakHighlight.visible = false;
       }
 
-      // Right click: place block
-      if (input.mouseButtons.right && !isWeapon) {
+      // Left click or right click: place block when holding a block
+      const wantsPlace = (input.mouseButtons.left || input.mouseButtons.right) && !isWeapon && this.inventory.getSelectedBlockType();
+      if (wantsPlace) {
         this.placeTimer += 0.016;
         if (this.placeTimer > 0.15) {
           this.placeBlock(target.placePos);
@@ -101,8 +102,10 @@ export class BlockPlacer {
         this.placeTimer = 0.1; // fast first click
       }
 
-      // Left click: break block (only when NOT holding a weapon)
-      if (input.mouseButtons.left && !isWeapon) {
+      // Right click: break block (when holding a block item)
+      // Left click breaks only when NO item is selected (bare hands)
+      const wantsBreak = !isWeapon && !this.inventory.getSelectedBlockType() && input.mouseButtons.left;
+      if (wantsBreak) {
         this.breakTimer += 0.016;
         if (this.breakTimer > 0.2) {
           this.breakBlock(target.blockPos);

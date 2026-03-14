@@ -249,6 +249,32 @@ export class UIManager {
     ctx.fillRect(w / 2 - 2, h / 2 - 2, 4, 4);
     ctx.strokeStyle = '#ff69b4';
     ctx.strokeRect(w / 2 - 2, h / 2 - 2, 4, 4);
+
+    // Player direction arrow
+    const yaw = player.yaw !== undefined ? player.yaw : 0;
+    const arrowLen = 10;
+    const cx = w / 2;
+    const cy = h / 2;
+    // yaw: 0 = looking along +Z, positive = left. Map to minimap: +Z = down, yaw rotates
+    const ax = cx - Math.sin(yaw) * arrowLen;
+    const ay = cy - Math.cos(yaw) * arrowLen;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ax, ay);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Arrow head
+    const headLen = 4;
+    const angle = Math.atan2(ay - cy, ax - cx);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - headLen * Math.cos(angle - 0.5), ay - headLen * Math.sin(angle - 0.5));
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - headLen * Math.cos(angle + 0.5), ay - headLen * Math.sin(angle + 0.5));
+    ctx.stroke();
   }
 
   renderCraftingRecipes(crafting) {

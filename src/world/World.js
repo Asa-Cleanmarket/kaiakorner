@@ -214,49 +214,86 @@ export class World {
     return biome;
   }
 
-  getHeight(wx, wz) {
-    const hk = (wx * 374761 + wz * 668265) | 0;
-    const cached = this._heightCache.get(hk);
-    if (cached !== undefined) return cached;
-    const biome = this.getBiome(wx, wz);
+  // Raw biome height without blending (used internally for blending)
+  _biomeHeight(wx, wz, biome) {
     let h = 0;
     if (biome === 'gumdrop_mountains') {
       h += this.noise2D(wx, wz, 60) * 10;
       h += this.noise2D(wx, wz, 30) * 4;
       h += this.noise2D(wx, wz, 15) * 2;
-      const result = Math.floor(h) + 14;
-      this._heightCache.set(hk, result);
-      return result;
+      return h + 14;
     }
     if (biome === 'frosting_mountains') {
       h += this.noise2D(wx, wz, 50) * 14;
       h += this.noise2D(wx, wz, 25) * 5;
       h += this.noise2D(wx, wz, 12) * 2;
-      const result = Math.floor(h) + 16;
-      this._heightCache.set(hk, result);
-      return result;
+      return h + 16;
     }
     if (biome === 'bubblegum_swamp') {
       h += this.noise2D(wx, wz, 100) * 2;
       h += this.noise2D(wx, wz, 50) * 1;
-      const result = Math.floor(h) + 9;
-      this._heightCache.set(hk, result);
-      return result;
+      return h + 9;
     }
     if (biome === 'sprinkle_beach') {
       h += this.noise2D(wx, wz, 120) * 2;
       h += this.noise2D(wx, wz, 40) * 0.5;
-      const result = Math.floor(h) + 9;
-      this._heightCache.set(hk, result);
-      return result;
+      return h + 9;
     }
     // Cotton Candy Forest (default)
     h += this.noise2D(wx, wz, 80) * 5;
     h += this.noise2D(wx, wz, 40) * 2.5;
     h += this.noise2D(wx, wz, 20) * 1;
-    const result = Math.floor(h) + 10;
+    return h + 10;
+  }
+
+  getHeight(wx, wz) {
+    const hk = (wx * 374761 + wz * 668265) | 0;
+    const cached = this._heightCache.get(hk);
+    if (cached !== undefined) return cached;
+
+    const biome = this.getBiome(wx, wz);
+    let h = this._biomeHeight(wx, wz, biome);
+
+    // Blend with neighboring biomes to create smooth ramps instead of cliffs
+    // Sample nearby points and blend if different biome
+    const blendRadius = 8;
+    const samples = [
+      [blendRadius, 0], [-blendRadius, 0], [0, blendRadius], [0, -blendRadius],
+      [blendRadius, blendRadius], [-blendRadius, -blendRadius],
+    ];
+    let totalWeight = 6; // weight for center sample (dominant)
+    let weightedH = h * 6;
+
+    for (const [dx, dz] of samples) {
+      const nb = this.getBiome(wx + dx, wz + dz);
+      if (nb !== biome) {
+        // Different biome nearby — blend using distance-based weight
+        const nh = this._biomeHeight(wx, wz, nb);
+        // Smooth transition: weight based on how close the boundary is
+        const edgeDist = this._findBiomeEdgeDist(wx, wz, dx, dz, biome);
+        const blend = Math.max(0, 1 - edgeDist / blendRadius);
+        const w = blend * 3; // blend weight
+        weightedH += nh * w;
+        totalWeight += w;
+      }
+    }
+
+    const result = Math.floor(weightedH / totalWeight);
     this._heightCache.set(hk, result);
     return result;
+  }
+
+  // Find how far the biome edge is in a given direction (0 = at edge, blendRadius = far from edge)
+  _findBiomeEdgeDist(wx, wz, dx, dz, biome) {
+    const steps = 4;
+    for (let i = 1; i <= steps; i++) {
+      const sx = wx + Math.round(dx * i / steps);
+      const sz = wz + Math.round(dz * i / steps);
+      if (this.getBiome(sx, sz) !== biome) {
+        return (i / steps) * Math.abs(dx || dz);
+      }
+    }
+    return Math.abs(dx || dz);
   }
 
   generateChunk(cx, cz) {
@@ -273,6 +310,9 @@ export class World {
         const biome = this.getBiome(wx, wz);
         heightMap[lx][lz] = height;
         for (let y = 0; y <= height; y++) {
+          // Don't overwrite blocks that were already modified (placed or broken)
+          const existingKey = this.blockKey(wx, y, wz);
+          if (this.blockData.has(existingKey)) continue;
           let blockType;
           if (biome === 'gumdrop_mountains') {
             if (y === height) blockType = BLOCK_TYPES.FROSTING_PLASTER;
@@ -335,7 +375,7 @@ export class World {
 
         for (let y = 0; y <= height; y++) {
           const blockType = this.blockData.get(this.blockKey(wx, y, wz));
-          if (!blockType) continue;
+          if (!blockType || blockType === 'air') continue;
 
           let color = getBlockColor(blockType);
           // Slight color variation for natural look
@@ -429,7 +469,7 @@ export class World {
 
   hasBlock(x, y, z) {
     const key = this.blockKey(x, y, z);
-    if (this.blockData.has(key)) return true;
+    if (this.blockData.has(key)) return this.blockData.get(key) !== 'air';
     const h = this.getHeight(x, z);
     return y >= 0 && y <= h;
   }
@@ -549,13 +589,14 @@ export class World {
   }
 
   getBlock(x, y, z) {
-    return this.blockData.get(this.blockKey(Math.floor(x), Math.floor(y), Math.floor(z)));
+    const val = this.blockData.get(this.blockKey(Math.floor(x), Math.floor(y), Math.floor(z)));
+    return val === 'air' ? null : val;
   }
 
   setBlock(x, y, z, type) {
     const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
     const key = this.blockKey(bx, by, bz);
-    if (type === null) this.blockData.delete(key);
+    if (type === null) this.blockData.set(key, 'air'); // Mark as explicitly empty (not deleted)
     else this.blockData.set(key, type);
 
     const cx = Math.floor(bx / CHUNK_SIZE);
@@ -591,7 +632,7 @@ export class World {
         const wz = cz * CHUNK_SIZE + lz;
         for (let y = 0; y <= this.getHeight(wx, wz) + 10; y++) {
           const blockType = this.blockData.get(this.blockKey(wx, y, wz));
-          if (!blockType) continue;
+          if (!blockType || blockType === 'air') continue;
           let color = getBlockColor(blockType);
           if (blockType === BLOCK_TYPES.GRASS) {
             const v = ((this.hash(wx * 3, wz * 7) % 30) - 15) / 255;
@@ -639,7 +680,8 @@ export class World {
 
   isSolid(x, y, z) {
     const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
-    if (this.blockData.has(this.blockKey(bx, by, bz))) return true;
+    const key = this.blockKey(bx, by, bz);
+    if (this.blockData.has(key)) return this.blockData.get(key) !== 'air';
     // Fallback to procedural height for ungenerated chunks
     const h = this.getHeight(bx, bz);
     return by >= 0 && by <= h;
