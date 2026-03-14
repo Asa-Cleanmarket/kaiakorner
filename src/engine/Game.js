@@ -77,6 +77,14 @@ export class Game {
       this.touchControls = new TouchControls(this.input);
     }
 
+    // Reusable color objects for sunset lerping (avoid allocations every frame)
+    this._sunsetColors = {
+      skyFrom: new THREE.Color(0x87ceeb), skyTo: new THREE.Color(0xff7744),
+      sunFrom: new THREE.Color(0xfff5ee), sunTo: new THREE.Color(0xff6633),
+      topFrom: new THREE.Color(0x55aaee), topTo: new THREE.Color(0xff4422),
+      botFrom: new THREE.Color(0xffeedd), botTo: new THREE.Color(0xff8844),
+    };
+
     this.setupLighting();
     this.setupEnvironment();
     this.setupCheatCodes();
@@ -382,11 +390,12 @@ export class Game {
       if (this.dayNight.isSunsetWarning) {
         const warn = (30 - this.dayNight.getTimeRemaining()) / 30;
         const t = Math.min(warn * 2, 1);
-        this.scene.background.lerpColors(new THREE.Color(0x87ceeb), new THREE.Color(0xff7744), t);
+        const sc = this._sunsetColors;
+        this.scene.background.lerpColors(sc.skyFrom, sc.skyTo, t);
         this.scene.fog.color.copy(this.scene.background);
-        this.sunLight.color.lerpColors(new THREE.Color(0xfff5ee), new THREE.Color(0xff6633), t);
-        this.skyDome.material.uniforms.topColor.value.lerpColors(new THREE.Color(0x55aaee), new THREE.Color(0xff4422), t);
-        this.skyDome.material.uniforms.bottomColor.value.lerpColors(new THREE.Color(0xffeedd), new THREE.Color(0xff8844), t);
+        this.sunLight.color.lerpColors(sc.sunFrom, sc.sunTo, t);
+        this.skyDome.material.uniforms.topColor.value.lerpColors(sc.topFrom, sc.topTo, t);
+        this.skyDome.material.uniforms.bottomColor.value.lerpColors(sc.botFrom, sc.botTo, t);
       }
     } else {
       this.ambientLight.intensity = 0.06;

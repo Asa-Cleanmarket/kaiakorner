@@ -26,6 +26,8 @@ export class UIManager {
     this.actionMsg = document.getElementById('action-msg');
     this.tutorialScreen = document.getElementById('tutorial-screen');
     this.initialized = false;
+    this._hotbarTimer = 0;
+    this._lastHotbarHash = '';
   }
 
   init() {
@@ -160,29 +162,42 @@ export class UIManager {
       }
     }
 
-    // Inventory hotbar
-    const hotbarItems = this.game.inventory.getHotbarItems();
-    const slots = this.inventoryBar.children;
-    for (let i = 0; i < slots.length; i++) {
-      const slot = slots[i];
-      const item = hotbarItems[i];
-      slot.className = 'inv-slot' + (item.selected ? ' active' : '');
-      if (item.type) {
-        const isWeapon = !!WEAPON_STATS[item.type];
-        let swatchColor;
-        if (isWeapon) {
-          swatchColor = item.type === 'lollipop_axe' ? '#ff69b4' : '#7b68ee';
-        } else {
-          const c = getBlockColor(item.type);
-          swatchColor = `rgb(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)})`;
+    // Inventory hotbar (throttled — only update when changed)
+    this._hotbarTimer -= 0.016;
+    if (this._hotbarTimer <= 0) {
+      this._hotbarTimer = 0.15; // Update ~6x/sec instead of 60x/sec
+      const hotbarItems = this.game.inventory.getHotbarItems();
+      // Build hash to detect changes
+      let hotbarHash = '';
+      for (let i = 0; i < hotbarItems.length; i++) {
+        const item = hotbarItems[i];
+        hotbarHash += (item.type || '') + item.count + (item.selected ? '1' : '0');
+      }
+      if (hotbarHash !== this._lastHotbarHash) {
+        this._lastHotbarHash = hotbarHash;
+        const slots = this.inventoryBar.children;
+        for (let i = 0; i < slots.length; i++) {
+          const slot = slots[i];
+          const item = hotbarItems[i];
+          slot.className = 'inv-slot' + (item.selected ? ' active' : '');
+          if (item.type) {
+            const isWeapon = !!WEAPON_STATS[item.type];
+            let swatchColor;
+            if (isWeapon) {
+              swatchColor = item.type === 'lollipop_axe' ? '#ff69b4' : '#7b68ee';
+            } else {
+              const c = getBlockColor(item.type);
+              swatchColor = `rgb(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)})`;
+            }
+            const icon = isWeapon ? (item.type === 'lollipop_axe' ? '&#x2694;' : '&#x1F3AF;') : '';
+            slot.innerHTML = `<span class="slot-num">${i + 1}</span>`
+              + `<div class="slot-swatch" style="background:${swatchColor}">${icon ? `<span style="font-size:14px;display:flex;align-items:center;justify-content:center;height:100%">${icon}</span>` : ''}</div>`
+              + `<span class="slot-name">${item.name}</span>`
+              + `<span class="slot-count">${item.count}</span>`;
+          } else {
+            slot.innerHTML = `<span class="slot-num" style="font-size:12px;position:static;opacity:0.3">${i + 1}</span>`;
+          }
         }
-        const icon = isWeapon ? (item.type === 'lollipop_axe' ? '&#x2694;' : '&#x1F3AF;') : '';
-        slot.innerHTML = `<span class="slot-num">${i + 1}</span>`
-          + `<div class="slot-swatch" style="background:${swatchColor}">${icon ? `<span style="font-size:14px;display:flex;align-items:center;justify-content:center;height:100%">${icon}</span>` : ''}</div>`
-          + `<span class="slot-name">${item.name}</span>`
-          + `<span class="slot-count">${item.count}</span>`;
-      } else {
-        slot.innerHTML = `<span class="slot-num" style="font-size:12px;position:static;opacity:0.3">${i + 1}</span>`;
       }
     }
 

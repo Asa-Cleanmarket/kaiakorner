@@ -81,6 +81,10 @@ export class MonsterSpawner {
     this.player = player;
     this.monsters = [];
     this.spawnTimer = 0;
+    // Reusable vectors
+    this._dir = new THREE.Vector3();
+    this._lookTarget = new THREE.Vector3();
+    this._toMonster = new THREE.Vector3();
   }
 
   update(delta, dayNight) {
@@ -195,16 +199,14 @@ export class MonsterSpawner {
   }
 
   updateMonster(monster, delta) {
-    const dir = new THREE.Vector3();
+    const dir = this._dir;
     dir.subVectors(this.player.position, monster.group.position);
     dir.y = 0;
     const distance = dir.length();
     dir.normalize();
 
-    // Don't approach if player is in a shelter
-    const playerInShelter = this.world.isInsideShelter(
-      this.player.position.x, this.player.position.y, this.player.position.z
-    );
+    // Use player's cached shelter state instead of recalculating per monster
+    const playerInShelter = this.player.inShelter;
 
     // Move toward player
     if (distance > 1.8 && !playerInShelter) {
@@ -215,12 +217,8 @@ export class MonsterSpawner {
       monster.group.position.y = groundY + monster.type.size.h / 2;
 
       // Face player
-      const lookTarget = new THREE.Vector3(
-        this.player.position.x,
-        monster.group.position.y,
-        this.player.position.z
-      );
-      monster.group.lookAt(lookTarget);
+      this._lookTarget.set(this.player.position.x, monster.group.position.y, this.player.position.z);
+      monster.group.lookAt(this._lookTarget);
     }
 
     // Walk animation — bob up and down + sway
@@ -265,7 +263,7 @@ export class MonsterSpawner {
   attackMonstersInRange(origin, direction, range, damage) {
     let hitAny = false;
     for (const monster of this.monsters) {
-      const toMonster = new THREE.Vector3().subVectors(monster.group.position, origin);
+      const toMonster = this._toMonster.subVectors(monster.group.position, origin);
       const dist = toMonster.length();
       if (dist > range) continue;
 

@@ -123,6 +123,17 @@ export class Player {
 
     // Projectiles
     this.projectiles = [];
+    this._trailGeo = new THREE.SphereGeometry(0.06, 4, 4); // Shared trail geometry
+
+    // Reusable vectors (avoid allocations every frame)
+    this._forward = new THREE.Vector3();
+    this._right = new THREE.Vector3();
+    this._moveDir = new THREE.Vector3();
+    this._up = new THREE.Vector3(0, 1, 0);
+    this._handDir = new THREE.Vector3();
+    this._handRight = new THREE.Vector3();
+    this._handPos = new THREE.Vector3();
+    this._flashDir = new THREE.Vector3();
 
     this.camera.position.set(8, 35, 8);
   }
@@ -159,7 +170,12 @@ export class Player {
     this.updateBuffs(delta);
     this.updateHand(delta);
     this.updateProjectiles(delta);
-    this.inShelter = this.world.isInsideShelter(this.position.x, this.position.y, this.position.z);
+    // Throttle shelter check (expensive — many isSolid calls)
+    this._shelterTimer = (this._shelterTimer || 0) - delta;
+    if (this._shelterTimer <= 0) {
+      this._shelterTimer = 0.5;
+      this.inShelter = this.world.isInsideShelter(this.position.x, this.position.y, this.position.z);
+    }
 
     // Camera
     this.camera.position.set(this.position.x, this.position.y + PLAYER_HEIGHT, this.position.z);
@@ -183,15 +199,15 @@ export class Player {
   }
 
   handleMovement(delta) {
-    const forward = new THREE.Vector3();
+    const forward = this._forward;
     this.camera.getWorldDirection(forward);
     forward.y = 0;
     forward.normalize();
 
-    const right = new THREE.Vector3();
-    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+    const right = this._right;
+    right.crossVectors(forward, this._up).normalize();
 
-    const moveDir = new THREE.Vector3();
+    const moveDir = this._moveDir.set(0, 0, 0);
     if (this.input.isDown('KeyW')) moveDir.add(forward);
     if (this.input.isDown('KeyS')) moveDir.sub(forward);
     if (this.input.isDown('KeyD')) moveDir.add(right);
@@ -456,7 +472,7 @@ export class Player {
       if (p.trailTimer > 0.03) {
         p.trailTimer = 0;
         const trail = new THREE.Mesh(
-          new THREE.SphereGeometry(0.06, 4, 4),
+          this._trailGeo,
           new THREE.MeshBasicMaterial({ color: p.mesh.material.color.getHex(), transparent: true, opacity: 0.5 })
         );
         trail.position.copy(p.mesh.position);
@@ -543,15 +559,15 @@ export class Player {
     }
 
     // Position hand in front of camera
-    const dir = new THREE.Vector3();
+    const dir = this._handDir;
     this.camera.getWorldDirection(dir);
-    const right = new THREE.Vector3();
-    right.crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+    const right = this._handRight;
+    right.crossVectors(dir, this._up).normalize();
 
-    const handPos = this.camera.position.clone()
+    const handPos = this._handPos.copy(this.camera.position)
       .addScaledVector(dir, 0.6)
-      .addScaledVector(right, 0.35)
-      .add(new THREE.Vector3(0, -0.3, 0));
+      .addScaledVector(right, 0.35);
+    handPos.y -= 0.3;
 
     // Swing animation
     if (this.attackAnim > 0) {
@@ -561,16 +577,17 @@ export class Player {
     }
 
     this.hand.position.copy(handPos);
-    this.hand.lookAt(handPos.clone().add(dir));
+    // Reuse _forward for lookAt target to avoid clone
+    this._forward.copy(handPos).add(dir);
+    this.hand.lookAt(this._forward);
   }
 
   updateFlashlight() {
     this.flashlight.intensity = this.flashlightOn ? 3 : 0;
     if (this.flashlightOn) {
-      const dir = new THREE.Vector3();
-      this.camera.getWorldDirection(dir);
+      this.camera.getWorldDirection(this._flashDir);
       this.flashlight.position.copy(this.camera.position);
-      this.flashlight.target.position.copy(this.camera.position).addScaledVector(dir, 10);
+      this.flashlight.target.position.copy(this.camera.position).addScaledVector(this._flashDir, 10);
     }
   }
 

@@ -169,7 +169,12 @@ export class DogCompanion {
     this.attackCooldown = Math.max(0, this.attackCooldown - delta);
     this.barkTimer = Math.max(0, this.barkTimer - delta);
 
-    const toPlayer = new THREE.Vector3().subVectors(this.player.position, this.group.position);
+    if (!this._tempVec) {
+      this._tempVec = new THREE.Vector3();
+      this._dirVec = new THREE.Vector3();
+      this._lookVec = new THREE.Vector3();
+    }
+    const toPlayer = this._tempVec.subVectors(this.player.position, this.group.position);
     toPlayer.y = 0;
     const distToPlayer = toPlayer.length();
 
@@ -239,11 +244,11 @@ export class DogCompanion {
 
     // Move
     if (moveTarget) {
-      const dir = new THREE.Vector3().subVectors(moveTarget, this.group.position);
+      const dir = this._dirVec.subVectors(moveTarget, this.group.position);
       dir.y = 0;
       dir.normalize();
 
-      const speed = nearestMonster ? DOG_SPEED * 1.2 : DOG_SPEED;
+      const speed = nearestTarget ? DOG_SPEED * 1.2 : DOG_SPEED;
       this.group.position.x += dir.x * speed * delta;
       this.group.position.z += dir.z * speed * delta;
 
@@ -252,8 +257,8 @@ export class DogCompanion {
       this.group.position.y = groundY;
 
       // Face movement direction
-      const lookTarget = new THREE.Vector3(moveTarget.x, this.group.position.y, moveTarget.z);
-      this.group.lookAt(lookTarget);
+      this._lookVec.set(moveTarget.x, this.group.position.y, moveTarget.z);
+      this.group.lookAt(this._lookVec);
 
       // Walk animation — bouncy legs
       this.walkCycle += delta * speed * 2;

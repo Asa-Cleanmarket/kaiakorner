@@ -36,9 +36,14 @@ export class World {
     // Material cache (keyed by color hex)
     this._matCache = new Map();
 
+    // Height cache to avoid redundant noise calculations
+    this._heightCache = new Map();
+    this._biomeCache = new Map();
+
     // Chunk generation queue for progressive loading
     this._chunkQueue = [];
-    this._chunksPerFrame = 2;
+    this._chunksPerFrame = 1; // Reduced from 2 to avoid frame drops
+    this._chunkQueueSet = new Set(); // Fast duplicate check instead of Array.find
   }
 
   _getMat(color, opts = {}) {
@@ -76,14 +81,10 @@ export class World {
 
   update(playerPos, elapsed) {
     this.updateChunks(playerPos);
-    // Process chunk queue progressively
-    const toProcess = Math.min(this._chunkQueue.length, this._chunksPerFrame);
-    for (let i = 0; i < toProcess; i++) {
-      const { cx, cz } = this._chunkQueue.shift();
-      const key = this.getChunkKey(cx, cz);
-      if (!this.chunks.has(key)) {
-        this.generateChunk(cx, cz);
-      }
+    // Process chunk queue asynchronously (outside the render loop)
+    if (!this._chunkProcessing && this._chunkQueue.length > 0) {
+      this._chunkProcessing = true;
+      setTimeout(() => this._processNextChunk(), 0);
     }
     // Animate trees gently (only nearby ones)
     if (elapsed !== undefined) {
@@ -101,6 +102,25 @@ export class World {
     }
   }
 
+  _processNextChunk() {
+    if (this._chunkQueue.length === 0) {
+      this._chunkProcessing = false;
+      return;
+    }
+    const { cx, cz } = this._chunkQueue.shift();
+    this._chunkQueueSet.delete(`${cx},${cz}`);
+    const key = this.getChunkKey(cx, cz);
+    if (!this.chunks.has(key)) {
+      this.generateChunk(cx, cz);
+    }
+    // Yield to let the browser render a frame, then process next chunk
+    if (this._chunkQueue.length > 0) {
+      setTimeout(() => this._processNextChunk(), 0);
+    } else {
+      this._chunkProcessing = false;
+    }
+  }
+
   updateChunks(playerPos) {
     const pcx = Math.floor(playerPos.x / CHUNK_SIZE);
     const pcz = Math.floor(playerPos.z / CHUNK_SIZE);
@@ -111,8 +131,10 @@ export class World {
         const cx = pcx + dx;
         const cz = pcz + dz;
         const key = this.getChunkKey(cx, cz);
-        if (!this.chunks.has(key) && !this._chunkQueue.find(q => q.cx === cx && q.cz === cz)) {
+        const qk = `${cx},${cz}`;
+        if (!this.chunks.has(key) && !this._chunkQueueSet.has(qk)) {
           this._chunkQueue.push({ cx, cz });
+          this._chunkQueueSet.add(qk);
         }
       }
     }
@@ -177,45 +199,64 @@ export class World {
   }
 
   getBiome(wx, wz) {
+    const bk = (wx * 374761 + wz * 668265) | 0;
+    const cached = this._biomeCache.get(bk);
+    if (cached !== undefined) return cached;
     const temp = this.noise2D(wx + 1000, wz + 1000, 250);
     const moisture = this.noise2D(wx + 5000, wz + 5000, 250);
-    if (temp > 0.6 && moisture > 0.5) return 'bubblegum_swamp';
-    if (temp > 0.55 && moisture < 0.4) return 'gumdrop_mountains';
-    if (temp < 0.35 && moisture > 0.5) return 'frosting_mountains';
-    if (temp < 0.4 && moisture < 0.35) return 'sprinkle_beach';
-    return 'cotton_candy_forest';
+    let biome;
+    if (temp > 0.6 && moisture > 0.5) biome = 'bubblegum_swamp';
+    else if (temp > 0.55 && moisture < 0.4) biome = 'gumdrop_mountains';
+    else if (temp < 0.35 && moisture > 0.5) biome = 'frosting_mountains';
+    else if (temp < 0.4 && moisture < 0.35) biome = 'sprinkle_beach';
+    else biome = 'cotton_candy_forest';
+    this._biomeCache.set(bk, biome);
+    return biome;
   }
 
   getHeight(wx, wz) {
+    const hk = (wx * 374761 + wz * 668265) | 0;
+    const cached = this._heightCache.get(hk);
+    if (cached !== undefined) return cached;
     const biome = this.getBiome(wx, wz);
     let h = 0;
     if (biome === 'gumdrop_mountains') {
       h += this.noise2D(wx, wz, 60) * 10;
       h += this.noise2D(wx, wz, 30) * 4;
       h += this.noise2D(wx, wz, 15) * 2;
-      return Math.floor(h) + 14;
+      const result = Math.floor(h) + 14;
+      this._heightCache.set(hk, result);
+      return result;
     }
     if (biome === 'frosting_mountains') {
       h += this.noise2D(wx, wz, 50) * 14;
       h += this.noise2D(wx, wz, 25) * 5;
       h += this.noise2D(wx, wz, 12) * 2;
-      return Math.floor(h) + 16;
+      const result = Math.floor(h) + 16;
+      this._heightCache.set(hk, result);
+      return result;
     }
     if (biome === 'bubblegum_swamp') {
       h += this.noise2D(wx, wz, 100) * 2;
       h += this.noise2D(wx, wz, 50) * 1;
-      return Math.floor(h) + 9; // Very flat, near water level
+      const result = Math.floor(h) + 9;
+      this._heightCache.set(hk, result);
+      return result;
     }
     if (biome === 'sprinkle_beach') {
       h += this.noise2D(wx, wz, 120) * 2;
       h += this.noise2D(wx, wz, 40) * 0.5;
-      return Math.floor(h) + 9; // Low, flat sandy terrain
+      const result = Math.floor(h) + 9;
+      this._heightCache.set(hk, result);
+      return result;
     }
     // Cotton Candy Forest (default)
     h += this.noise2D(wx, wz, 80) * 5;
     h += this.noise2D(wx, wz, 40) * 2.5;
     h += this.noise2D(wx, wz, 20) * 1;
-    return Math.floor(h) + 10;
+    const result = Math.floor(h) + 10;
+    this._heightCache.set(hk, result);
+    return result;
   }
 
   generateChunk(cx, cz) {
@@ -269,6 +310,22 @@ export class World {
     const treePositions = [];
     const flowerPositions = [];
 
+    // Helper: check if a block exists at position using heightMap for local lookups (avoids expensive noise)
+    const localHasBlock = (wx, y, wz) => {
+      // Check player-placed/removed blocks first
+      const bk = this.blockKey(wx, y, wz);
+      if (this.blockData.has(bk)) return true;
+      // Use local heightMap for positions within this chunk
+      const llx = wx - cx * CHUNK_SIZE;
+      const llz = wz - cz * CHUNK_SIZE;
+      if (llx >= 0 && llx < CHUNK_SIZE && llz >= 0 && llz < CHUNK_SIZE) {
+        return y >= 0 && y <= heightMap[llx][llz];
+      }
+      // For neighbors, use cached getHeight
+      const h = this.getHeight(wx, wz);
+      return y >= 0 && y <= h;
+    };
+
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const wx = cx * CHUNK_SIZE + lx;
@@ -289,32 +346,38 @@ export class World {
             color.g += variation * 0.5;
           }
 
-          const faces = [];
-          if (!this.hasBlock(wx, y + 1, wz)) faces.push('top');
-          if (y > 0 && !this.hasBlock(wx, y - 1, wz)) faces.push('bottom');
-          if (!this.hasBlock(wx + 1, y, wz)) faces.push('right');
-          if (!this.hasBlock(wx - 1, y, wz)) faces.push('left');
-          if (!this.hasBlock(wx, y, wz + 1)) faces.push('front');
-          if (!this.hasBlock(wx, y, wz - 1)) faces.push('back');
+          // Use localHasBlock to avoid redundant noise calculations
+          const showTop = !localHasBlock(wx, y + 1, wz);
+          const showBottom = y > 0 && !localHasBlock(wx, y - 1, wz);
+          const showRight = !localHasBlock(wx + 1, y, wz);
+          const showLeft = !localHasBlock(wx - 1, y, wz);
+          const showFront = !localHasBlock(wx, y, wz + 1);
+          const showBack = !localHasBlock(wx, y, wz - 1);
 
-          for (const face of faces) {
+          if (!showTop && !showBottom && !showRight && !showLeft && !showFront && !showBack) continue;
+
+          // Pre-compute face colors
+          const sideColor = (showBottom || showRight || showLeft || showFront || showBack) ? color.clone().multiplyScalar(0.8) : null;
+          const bottomColor = showBottom ? color.clone().multiplyScalar(0.6) : null;
+
+          const addFace = (face, fc) => {
             const verts = FACE_VERTICES[face];
-            // Slight ambient occlusion: darken side/bottom faces
-            let faceColor = color;
-            if (face === 'bottom') {
-              faceColor = color.clone().multiplyScalar(0.6);
-            } else if (face !== 'top') {
-              faceColor = color.clone().multiplyScalar(0.8);
-            }
-
+            const n = FACE_NORMALS[face];
             for (const v of verts) {
               positions.push(wx + v[0], y + v[1], wz + v[2]);
-              colors.push(faceColor.r, faceColor.g, faceColor.b);
-              normals.push(...FACE_NORMALS[face]);
+              colors.push(fc.r, fc.g, fc.b);
+              normals.push(n[0], n[1], n[2]);
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
-          }
+          };
+
+          if (showTop) addFace('top', color);
+          if (showBottom) addFace('bottom', bottomColor);
+          if (showRight) addFace('right', sideColor);
+          if (showLeft) addFace('left', sideColor);
+          if (showFront) addFace('front', sideColor);
+          if (showBack) addFace('back', sideColor);
         }
 
         // Trees — different density per biome (reduced for performance)
