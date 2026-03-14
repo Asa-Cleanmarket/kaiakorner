@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { BLOCK_TYPES, getBlockColor } from './BlockTypes.js';
 
 const CHUNK_SIZE = 16;
-const RENDER_DISTANCE = 5;
+const IS_MOBILE = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
+const RENDER_DISTANCE = IS_MOBILE ? 3 : 4;
 
 export class World {
   constructor(scene) {
@@ -13,22 +14,85 @@ export class World {
     this.blockData = new Map();
     this.trees = [];
 
-    // Shared materials for decorations
+    // Shared geometries and materials to reduce draw calls
     this.flowerColors = [0xff69b4, 0xff99cc, 0xcc66ff, 0x66ccff, 0xffcc66, 0xff6699];
     this.grassBladeGeo = new THREE.PlaneGeometry(0.15, 0.5);
+
+    // Shared tree geometries (reuse across all trees)
+    this._trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, 1, 5); // scale per-tree
+    this._canopyGeos = [
+      new THREE.SphereGeometry(1.0, 6, 4),
+      new THREE.SphereGeometry(1.3, 6, 4),
+      new THREE.SphereGeometry(1.6, 6, 4),
+    ];
+    // Shared decoration geometries
+    this._flowerGeo = new THREE.SphereGeometry(0.15, 4, 3);
+    this._grassGeo = new THREE.ConeGeometry(0.08, 0.4, 3);
+    this._sprinkleGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 3);
+    this._gumDropGeo = new THREE.SphereGeometry(0.2, 5, 3);
+    this._crystalGeo = new THREE.ConeGeometry(0.1, 0.5, 4);
+    this._rockGeo = new THREE.DodecahedronGeometry(0.12, 0);
+
+    // Material cache (keyed by color hex)
+    this._matCache = new Map();
+
+    // Chunk generation queue for progressive loading
+    this._chunkQueue = [];
+    this._chunksPerFrame = 2;
+  }
+
+  _getMat(color, opts = {}) {
+    const key = color + (opts.emissive ? 'e' : '') + (opts.roughness || '');
+    if (this._matCache.has(key)) return this._matCache.get(key);
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: opts.roughness || 0.6,
+      metalness: opts.metalness || 0,
+      ...(opts.emissive ? { emissive: color, emissiveIntensity: 0.05 } : {}),
+    });
+    this._matCache.set(key, mat);
+    return mat;
   }
 
   getChunkKey(cx, cz) { return `${cx},${cz}`; }
   blockKey(x, y, z) { return `${x},${y},${z}`; }
 
-  generate(playerPos) { this.updateChunks(playerPos); }
+  generate(playerPos) {
+    // Generate only the nearest chunks immediately, queue the rest
+    const pcx = Math.floor(playerPos.x / CHUNK_SIZE);
+    const pcz = Math.floor(playerPos.z / CHUNK_SIZE);
+    // Immediate: 3x3 around player
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const cx = pcx + dx;
+        const cz = pcz + dz;
+        const key = this.getChunkKey(cx, cz);
+        if (!this.chunks.has(key)) {
+          this.generateChunk(cx, cz);
+        }
+      }
+    }
+  }
 
   update(playerPos, elapsed) {
     this.updateChunks(playerPos);
-    // Animate trees gently
+    // Process chunk queue progressively
+    const toProcess = Math.min(this._chunkQueue.length, this._chunksPerFrame);
+    for (let i = 0; i < toProcess; i++) {
+      const { cx, cz } = this._chunkQueue.shift();
+      const key = this.getChunkKey(cx, cz);
+      if (!this.chunks.has(key)) {
+        this.generateChunk(cx, cz);
+      }
+    }
+    // Animate trees gently (only nearby ones)
     if (elapsed !== undefined) {
+      const px = playerPos.x, pz = playerPos.z;
       for (const tree of this.trees) {
         if (tree.canopy) {
+          const dx = tree.trunk.position.x - px;
+          const dz = tree.trunk.position.z - pz;
+          if (dx * dx + dz * dz > 2500) continue; // skip distant trees (50 block radius)
           for (const c of tree.canopy) {
             c.position.y = tree.canopyBaseY + Math.sin(elapsed * 0.8 + tree.phase) * 0.1;
           }
@@ -47,8 +111,8 @@ export class World {
         const cx = pcx + dx;
         const cz = pcz + dz;
         const key = this.getChunkKey(cx, cz);
-        if (!this.chunks.has(key)) {
-          this.generateChunk(cx, cz);
+        if (!this.chunks.has(key) && !this._chunkQueue.find(q => q.cx === cx && q.cz === cz)) {
+          this._chunkQueue.push({ cx, cz });
         }
       }
     }
@@ -253,15 +317,15 @@ export class World {
           }
         }
 
-        // Trees — different density per biome
-        const treeDensity = { cotton_candy_forest: 30, gumdrop_mountains: 50, frosting_mountains: 70, bubblegum_swamp: 20, sprinkle_beach: 100 };
-        const treeMod = treeDensity[biome] || 30;
+        // Trees — different density per biome (reduced for performance)
+        const treeDensity = { cotton_candy_forest: 60, gumdrop_mountains: 90, frosting_mountains: 120, bubblegum_swamp: 50, sprinkle_beach: 150 };
+        const treeMod = treeDensity[biome] || 60;
         if (this.hash(wx * 7, wz * 13) % treeMod === 0 && height > 5) {
           treePositions.push({ x: wx, y: height + 1, z: wz, biome });
         }
 
-        // Flowers/grass tufts
-        if (this.hash(wx * 11, wz * 23) % 6 === 0 && height > 5) {
+        // Flowers/grass tufts (reduced density)
+        if (this.hash(wx * 11, wz * 23) % 14 === 0 && height > 5) {
           flowerPositions.push({ x: wx, y: height + 1, z: wz, biome });
         }
       }
@@ -312,54 +376,33 @@ export class World {
     let mesh;
 
     if (biome === 'gumdrop_mountains') {
-      // Mountain decorations: crystals and gumdrop pebbles
       if (type === 0) {
-        // Gumdrop pebble
         const gumColors = [0xff4444, 0x44cc44, 0xffaa00, 0xff44ff, 0x4488ff];
         const color = gumColors[this.hash(x, z) % gumColors.length];
-        const geo = new THREE.SphereGeometry(0.2, 6, 4);
-        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.1, emissive: color, emissiveIntensity: 0.05 });
-        mesh = new THREE.Mesh(geo, mat);
+        mesh = new THREE.Mesh(this._gumDropGeo, this._getMat(color, { roughness: 0.3, emissive: true }));
         mesh.scale.y = 0.7;
         mesh.position.set(x + 0.5 + (this.hash(x * 3, z) % 40) / 100, y + 0.1, z + 0.5);
       } else if (type === 1) {
-        // Rock candy crystal
-        const geo = new THREE.ConeGeometry(0.1, 0.5, 5);
         const crystalColors = [0xd4f1ff, 0xaaffee, 0xffccdd];
         const color = crystalColors[this.hash(x * 7, z * 3) % crystalColors.length];
-        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.4, emissive: color, emissiveIntensity: 0.1 });
-        mesh = new THREE.Mesh(geo, mat);
+        mesh = new THREE.Mesh(this._crystalGeo, this._getMat(color, { roughness: 0.2, metalness: 0.4, emissive: true }));
         mesh.position.set(x + 0.5, y + 0.25, z + 0.5);
-        mesh.rotation.z = ((this.hash(x * 5, z * 7) % 40) - 20) / 100;
       } else {
-        // Small rock
-        const geo = new THREE.DodecahedronGeometry(0.12, 0);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x998877, roughness: 0.9 });
-        mesh = new THREE.Mesh(geo, mat);
+        mesh = new THREE.Mesh(this._rockGeo, this._getMat(0x998877, { roughness: 0.9 }));
         mesh.position.set(x + 0.5, y + 0.08, z + 0.5);
       }
     } else if (type === 0) {
-      // Small candy flower
       const color = this.flowerColors[this.hash(x, z) % this.flowerColors.length];
-      const geo = new THREE.SphereGeometry(0.15, 5, 5);
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive: color, emissiveIntensity: 0.1 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(this._flowerGeo, this._getMat(color, { roughness: 0.5, emissive: true }));
       mesh.position.set(x + 0.3 + (this.hash(x * 3, z) % 40) / 100, y + 0.15, z + 0.3 + (this.hash(x, z * 3) % 40) / 100);
     } else if (type === 1) {
-      // Grass tuft
-      const geo = new THREE.ConeGeometry(0.08, 0.4, 4);
-      const mat = new THREE.MeshStandardMaterial({ color: 0x3dd070, roughness: 0.8 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(this._grassGeo, this._getMat(0x3dd070, { roughness: 0.8 }));
       mesh.position.set(x + 0.5 + (this.hash(x * 5, z * 7) % 30 - 15) / 100, y + 0.2, z + 0.5);
     } else {
-      // Sprinkle
       const sprinkleColors = [0xff4488, 0x44bbff, 0xffcc00, 0xff8844, 0xaa44ff];
       const color = sprinkleColors[this.hash(x * 13, z * 19) % sprinkleColors.length];
-      const geo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 4);
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(this._sprinkleGeo, this._getMat(color, { roughness: 0.3, metalness: 0.2 }));
       mesh.position.set(x + 0.5, y + 0.05, z + 0.5);
-      mesh.rotation.z = Math.random() * 0.5;
     }
 
     if (mesh) {
@@ -375,8 +418,7 @@ export class World {
 
     if (biome === 'gumdrop_mountains') {
       trunkHeight = 2 + (this.hash(x * 3, z * 5) % 2);
-      const mtTrunkColors = [0xd2a679, 0xc49060, 0xb07848, 0xcc8833];
-      trunkColor = mtTrunkColors[variant];
+      trunkColor = [0xd2a679, 0xc49060, 0xb07848, 0xcc8833][variant];
     } else if (biome === 'frosting_mountains') {
       trunkHeight = 3 + (this.hash(x * 3, z * 5) % 2);
       trunkColor = [0xaaddee, 0xbbccdd, 0xccddee, 0x99bbcc][variant];
@@ -388,66 +430,48 @@ export class World {
       trunkColor = [0xddbb88, 0xccaa77, 0xbb9966, 0xcc9955][variant];
     } else {
       trunkHeight = 4 + (this.hash(x * 3, z * 5) % 3);
-      const trunkColors = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699];
-      trunkColor = trunkColors[variant];
+      trunkColor = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699][variant];
     }
 
-    // Trunk — slightly tapered
-    const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, trunkHeight, 6);
-    const trunkMat = new THREE.MeshStandardMaterial({
-      color: trunkColor,
-      roughness: 0.7,
-      metalness: 0,
-    });
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    // Trunk — shared geometry, scaled, shared material
+    const trunk = new THREE.Mesh(this._trunkGeo, this._getMat(trunkColor, { roughness: 0.7 }));
+    trunk.scale.y = trunkHeight;
     trunk.position.set(x + 0.5, y + trunkHeight / 2, z + 0.5);
     trunk.castShadow = true;
-    trunk.receiveShadow = true;
     trunk.userData.type = 'tree';
     trunk.userData.health = 3;
     trunk.userData.maxHealth = 3;
     trunk.userData.resourceType = BLOCK_TYPES.COTTON_CANDY_WOOD;
     this.scene.add(trunk);
 
-    // Canopy colors per biome
+    // Canopy — 2-3 spheres using shared geometries (much less than 5-7)
     let canopyColors;
     if (biome === 'gumdrop_mountains') {
-      canopyColors = [[0xff4444,0xff6666,0xff8888],[0x44cc44,0x66dd66,0x88ee88],[0xffaa00,0xffcc44,0xffdd66],[0xff44ff,0xff66ff,0xff88ff]][variant];
+      canopyColors = [0xff4444, 0x44cc44, 0xffaa00, 0xff44ff][variant];
     } else if (biome === 'frosting_mountains') {
-      canopyColors = [[0xddeeff,0xeef5ff,0xffffff],[0xccddff,0xddeeFF,0xeef5ff],[0xbbccee,0xccddee,0xddeeff],[0xaabbdd,0xbbccee,0xccddff]][variant];
+      canopyColors = [0xddeeff, 0xccddff, 0xbbccee, 0xaabbdd][variant];
     } else if (biome === 'bubblegum_swamp') {
-      canopyColors = [[0xff66cc,0xff44aa,0xff88dd],[0xcc44ff,0xdd66ff,0xee88ff],[0xff66cc,0xcc44ff,0xff88dd],[0xaa33dd,0xcc55ff,0xdd77ff]][variant];
+      canopyColors = [0xff66cc, 0xcc44ff, 0xff66cc, 0xaa33dd][variant];
     } else if (biome === 'sprinkle_beach') {
-      canopyColors = [[0x66dd66,0x88ee88,0xaaff99],[0x77dd55,0x99ee77,0xbbff99],[0x55cc44,0x77dd66,0x99ee88],[0x66cc55,0x88dd77,0xaaee99]][variant];
+      canopyColors = [0x66dd66, 0x77dd55, 0x55cc44, 0x66cc55][variant];
     } else {
-      canopyColors = [[0xff69b4,0xff99cc,0xffb6d5],[0x55ccff,0x77ddff,0x99eeff],[0xcc66ff,0xdd88ff,0xeeaaff],[0xff69b4,0x55ccff,0xcc66ff]][variant];
+      canopyColors = [0xff69b4, 0x55ccff, 0xcc66ff, 0xff69b4][variant];
     }
+
     const canopyY = y + trunkHeight;
     const canopy = [];
+    const canopyCount = 2 + (this.hash(x * 11, z * 17) % 2); // 2-3 spheres
 
-    const canopyCount = 5 + (this.hash(x * 11, z * 17) % 3);
     for (let i = 0; i < canopyCount; i++) {
-      const radius = 1.0 + ((this.hash(x + i * 7, z + i * 13) % 80) / 100) * 0.8;
-      const geo = new THREE.SphereGeometry(radius, 8, 6);
-      const color = canopyColors[i % canopyColors.length];
-      const mat = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.6,
-        metalness: 0,
-        emissive: color,
-        emissiveIntensity: 0.05,
-      });
-      const sphere = new THREE.Mesh(geo, mat);
+      const geoIdx = (this.hash(x + i * 7, z + i * 13) % 3);
+      const geo = this._canopyGeos[geoIdx];
+      const sphere = new THREE.Mesh(geo, this._getMat(canopyColors, { emissive: true, roughness: 0.6 }));
 
-      const ox = ((this.hash(x * 3 + i, z * 7) % 200) - 100) / 100 * 1.5;
-      const oy = ((this.hash(x * 5 + i, z * 11) % 100) / 100) * 2.0;
-      const oz = ((this.hash(x * 7 + i, z * 3) % 200) - 100) / 100 * 1.5;
+      const ox = ((this.hash(x * 3 + i, z * 7) % 200) - 100) / 100 * 1.2;
+      const oy = ((this.hash(x * 5 + i, z * 11) % 100) / 100) * 1.5;
+      const oz = ((this.hash(x * 7 + i, z * 3) % 200) - 100) / 100 * 1.2;
 
       sphere.position.set(x + 0.5 + ox, canopyY + oy, z + 0.5 + oz);
-      sphere.castShadow = true;
-      sphere.receiveShadow = true;
-      sphere.userData.type = 'canopy';
-      sphere.userData.parentTree = trunk;
       this.scene.add(sphere);
       canopy.push(sphere);
     }

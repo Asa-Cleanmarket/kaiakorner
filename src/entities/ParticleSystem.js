@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
-const MAX_SPARKLES = 80;
-const SPARKLE_RANGE = 30;
+const IS_MOBILE = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
+const MAX_SPARKLES = IS_MOBILE ? 15 : 40;
+const SPARKLE_RANGE = IS_MOBILE ? 15 : 25;
 
 export class ParticleSystem {
   constructor(scene) {
@@ -130,14 +131,8 @@ export class ParticleSystem {
     mesh.scale.setScalar(baseScale);
     this.scene.add(mesh);
 
-    // Add a tiny point light for glow
-    const light = new THREE.PointLight(color, 0.3, 4);
-    light.position.copy(mesh.position);
-    this.scene.add(light);
-
     this.sparkles.push({
       mesh,
-      light,
       life: 1.5 + Math.random() * 2.5,
       speed: 0.1 + Math.random() * 0.3,
       wobble: Math.random() * Math.PI * 2,

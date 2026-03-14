@@ -91,8 +91,9 @@ export class Game {
     this.sunLight = new THREE.DirectionalLight(0xfff5ee, 1.5);
     this.sunLight.position.set(50, 80, 30);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    const shadowRes = this.isMobile ? 512 : 1024;
+    this.sunLight.shadow.mapSize.width = shadowRes;
+    this.sunLight.shadow.mapSize.height = shadowRes;
     this.sunLight.shadow.camera.near = 1;
     this.sunLight.shadow.camera.far = 250;
     this.sunLight.shadow.camera.left = -80;
@@ -167,7 +168,8 @@ export class Game {
       color: 0xffffff, roughness: 1, metalness: 0,
       transparent: true, opacity: 0.7,
     });
-    for (let i = 0; i < 20; i++) {
+    const cloudCount = this.isMobile ? 8 : 15;
+    for (let i = 0; i < cloudCount; i++) {
       const cloud = new THREE.Group();
       const puffCount = 3 + Math.floor(Math.random() * 4);
       for (let j = 0; j < puffCount; j++) {
