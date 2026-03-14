@@ -32,6 +32,9 @@ export class Player {
     this.sugarRush = 0;
     this.sugarCrash = 0;
     this.inShelter = false;
+    this.isDead = false;
+    this.deathTimer = 0;
+    this.spawnPoint = new THREE.Vector3(8, 30, 8);
 
     // Combat
     this.attackTimer = 0;
@@ -106,6 +109,20 @@ export class Player {
       this.spawned = true;
     }
 
+    // Death state
+    if (this.isDead) {
+      this.deathTimer = Math.max(0, this.deathTimer - delta);
+      this.hand.visible = false;
+      // Camera slowly drifts up
+      this.camera.position.y += delta * 0.5;
+      this.camera.rotation.z += delta * 0.1;
+      if (this.input.justPressed('Space') && this.deathTimer <= 0) {
+        this.respawn();
+      }
+      return;
+    }
+
+    this.hand.visible = true;
     this.handleLook();
     this.handleMovement(delta);
     this.handleActions(delta);
@@ -117,6 +134,7 @@ export class Player {
 
     // Camera
     this.camera.position.set(this.position.x, this.position.y + PLAYER_HEIGHT, this.position.z);
+    this.camera.rotation.z = 0;
 
     // Damage flash
     if (this.damageFlash > 0) {
@@ -444,7 +462,26 @@ export class Player {
   }
 
   takeDamage(amount) {
+    if (this.isDead) return;
     this.health = Math.max(0, this.health - amount);
     this.damageFlash = 1;
+    if (this.health <= 0) {
+      this.isDead = true;
+      this.deathTimer = 3; // 3 seconds before respawn available
+    }
+  }
+
+  respawn() {
+    this.isDead = false;
+    this.deathTimer = 0;
+    this.health = this.maxHealth;
+    this.position.copy(this.spawnPoint);
+    const groundY = this.world.getSurfaceHeight(this.position.x, this.position.z) + 1;
+    this.position.y = groundY;
+    this.velocity.set(0, 0, 0);
+    this.onGround = true;
+    this.damageFlash = 0;
+    this.sugarRush = 0;
+    this.sugarCrash = 0;
   }
 }

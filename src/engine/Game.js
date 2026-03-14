@@ -8,6 +8,7 @@ import { BlockPlacer } from '../world/BlockPlacer.js';
 import { Inventory } from '../entities/Inventory.js';
 import { MonsterSpawner } from '../entities/MonsterSpawner.js';
 import { ParticleSystem } from '../entities/ParticleSystem.js';
+import { DogCompanion } from '../entities/DogCompanion.js';
 
 export class Game {
   constructor() {
@@ -40,12 +41,15 @@ export class Game {
     this.monsterSpawner = new MonsterSpawner(this.scene, this.world, this.player);
     this.particles = new ParticleSystem(this.scene);
 
+    this.dog = new DogCompanion(this.scene, this.player, this.world);
+
     // Wire cross-references
     this.player.monsterSpawner = this.monsterSpawner;
     this.player.particles = this.particles;
 
     this.setupLighting();
     this.setupEnvironment();
+    this.setupCheatCodes();
 
     window.addEventListener('resize', () => this.onResize());
   }
@@ -110,6 +114,7 @@ export class Game {
 
     this.world.generate(this.player.position);
     this.ui.init();
+    this.dog.spawn(this.player.position);
     this.clock.start();
     this.animate();
   }
@@ -125,8 +130,10 @@ export class Game {
     this.world.update(this.player.position, elapsed);
     this.blockPlacer.update(this.input);
     this.monsterSpawner.update(delta, this.dayNight);
+    this.dog.update(delta, this.monsterSpawner);
     this.particles.update(delta, this.player.position, this.dayNight);
-    this.ui.update(this.dayNight, this.player);
+    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer);
+    if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;
 
     this.updateLighting(elapsed);
 
@@ -196,6 +203,44 @@ export class Game {
       this.scene.fog.near = 8;
       this.scene.fog.far = 50;
     }
+  }
+
+  setupCheatCodes() {
+    this.cheatBuffer = '';
+    this.cheatMessage = '';
+    this.cheatMessageTimer = 0;
+
+    const cheats = {
+      'sugarmama': () => { this.player.health = this.player.maxHealth; return 'FULL HEALTH!'; },
+      'rarecandy': () => { this.inventory.add('crystal_sugar', 50); return 'RARE CANDY x50!'; },
+      'goldenboy': () => { this.inventory.add('cotton_candy_wood', 99); this.inventory.add('pink_brick', 99); return 'RESOURCES MAXED!'; },
+      'puppylove': () => { if (!this.dog.active) this.dog.spawn(this.player.position); return 'GOOD BOY ACTIVATED!'; },
+      'sweetdreams': () => { this.dayNight.elapsed = 0; return 'SWEET DREAMS — DAY RESET!'; },
+      'bossmode': () => { this.player.maxHealth = 200; this.player.health = 200; return 'BOSS MODE — 200 HP!'; },
+      'kaiaisqueen': () => {
+        this.player.maxHealth = 999; this.player.health = 999;
+        this.inventory.add('crystal_sugar', 99);
+        this.inventory.add('gummy_block', 99);
+        this.inventory.add('marshmallow_pad', 99);
+        return 'KAIA IS QUEEN! ALL THE THINGS!';
+      },
+      'cottoncandy': () => { this.player.sugarRush = 30; return 'SUGAR RUSH x30!'; },
+    };
+
+    window.addEventListener('keypress', (e) => {
+      if (!this.started) return;
+      this.cheatBuffer += e.key.toLowerCase();
+      if (this.cheatBuffer.length > 20) this.cheatBuffer = this.cheatBuffer.slice(-20);
+
+      for (const [code, fn] of Object.entries(cheats)) {
+        if (this.cheatBuffer.endsWith(code)) {
+          this.cheatMessage = fn();
+          this.cheatMessageTimer = 3;
+          this.cheatBuffer = '';
+          break;
+        }
+      }
+    });
   }
 
   onResize() {

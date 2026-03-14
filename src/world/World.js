@@ -112,8 +112,23 @@ export class World {
     return top + (bot - top) * sfz;
   }
 
+  getBiome(wx, wz) {
+    // Large-scale noise for biome selection
+    const biomeVal = this.noise2D(wx, wz, 200);
+    if (biomeVal > 0.55) return 'gumdrop_mountains';
+    return 'cotton_candy_forest';
+  }
+
   getHeight(wx, wz) {
+    const biome = this.getBiome(wx, wz);
     let h = 0;
+    if (biome === 'gumdrop_mountains') {
+      h += this.noise2D(wx, wz, 60) * 10;
+      h += this.noise2D(wx, wz, 30) * 4;
+      h += this.noise2D(wx, wz, 15) * 2;
+      return Math.floor(h) + 14;
+    }
+    // Cotton Candy Forest (default)
     h += this.noise2D(wx, wz, 80) * 5;
     h += this.noise2D(wx, wz, 40) * 2.5;
     h += this.noise2D(wx, wz, 20) * 1;
@@ -131,12 +146,19 @@ export class World {
         const wx = cx * CHUNK_SIZE + lx;
         const wz = cz * CHUNK_SIZE + lz;
         const height = this.getHeight(wx, wz);
+        const biome = this.getBiome(wx, wz);
         heightMap[lx][lz] = height;
         for (let y = 0; y <= height; y++) {
           let blockType;
-          if (y === height) blockType = BLOCK_TYPES.GRASS;
-          else if (y > height - 3) blockType = BLOCK_TYPES.COTTON_CANDY_WOOD;
-          else blockType = BLOCK_TYPES.PINK_BRICK;
+          if (biome === 'gumdrop_mountains') {
+            if (y === height) blockType = BLOCK_TYPES.FROSTING_PLASTER;
+            else if (y > height - 3) blockType = BLOCK_TYPES.GUMMY_BLOCK;
+            else blockType = BLOCK_TYPES.JELLYBEAN_BRICK;
+          } else {
+            if (y === height) blockType = BLOCK_TYPES.GRASS;
+            else if (y > height - 3) blockType = BLOCK_TYPES.COTTON_CANDY_WOOD;
+            else blockType = BLOCK_TYPES.PINK_BRICK;
+          }
           this.blockData.set(this.blockKey(wx, y, wz), blockType);
         }
       }
@@ -156,6 +178,7 @@ export class World {
         const wx = cx * CHUNK_SIZE + lx;
         const wz = cz * CHUNK_SIZE + lz;
         const height = heightMap[lx][lz];
+        const biome = this.getBiome(wx, wz);
 
         for (let y = 0; y <= height; y++) {
           const blockType = this.blockData.get(this.blockKey(wx, y, wz));
@@ -163,7 +186,7 @@ export class World {
 
           let color = getBlockColor(blockType);
           // Slight color variation for natural look
-          if (blockType === BLOCK_TYPES.GRASS) {
+          if (blockType === BLOCK_TYPES.GRASS || blockType === BLOCK_TYPES.FROSTING_PLASTER) {
             const variation = ((this.hash(wx * 3, wz * 7) % 30) - 15) / 255;
             color = color.clone();
             color.r += variation;
@@ -198,14 +221,15 @@ export class World {
           }
         }
 
-        // Trees (less dense)
-        if (this.hash(wx * 7, wz * 13) % 30 === 0 && height > 5) {
-          treePositions.push({ x: wx, y: height + 1, z: wz });
+        // Trees — different density per biome
+        const treeMod = biome === 'gumdrop_mountains' ? 50 : 30;
+        if (this.hash(wx * 7, wz * 13) % treeMod === 0 && height > 5) {
+          treePositions.push({ x: wx, y: height + 1, z: wz, biome });
         }
 
         // Flowers/grass tufts
         if (this.hash(wx * 11, wz * 23) % 6 === 0 && height > 5) {
-          flowerPositions.push({ x: wx, y: height + 1, z: wz });
+          flowerPositions.push({ x: wx, y: height + 1, z: wz, biome });
         }
       }
     }
@@ -232,14 +256,14 @@ export class World {
     // Add decorations
     const decos = [];
     for (const fp of flowerPositions) {
-      const deco = this.addFlower(fp.x, fp.y, fp.z);
+      const deco = this.addFlower(fp.x, fp.y, fp.z, fp.biome);
       if (deco) decos.push(deco);
     }
     if (decos.length > 0) this.chunkDecorations.set(key, decos);
 
     // Add trees
     for (const tp of treePositions) {
-      this.addTree(tp.x, tp.y, tp.z, key);
+      this.addTree(tp.x, tp.y, tp.z, key, tp.biome);
     }
   }
 
@@ -250,11 +274,38 @@ export class World {
     return y >= 0 && y <= h;
   }
 
-  addFlower(x, y, z) {
+  addFlower(x, y, z, biome = 'cotton_candy_forest') {
     const type = this.hash(x * 17, z * 31) % 3;
     let mesh;
 
-    if (type === 0) {
+    if (biome === 'gumdrop_mountains') {
+      // Mountain decorations: crystals and gumdrop pebbles
+      if (type === 0) {
+        // Gumdrop pebble
+        const gumColors = [0xff4444, 0x44cc44, 0xffaa00, 0xff44ff, 0x4488ff];
+        const color = gumColors[this.hash(x, z) % gumColors.length];
+        const geo = new THREE.SphereGeometry(0.2, 6, 4);
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.1, emissive: color, emissiveIntensity: 0.05 });
+        mesh = new THREE.Mesh(geo, mat);
+        mesh.scale.y = 0.7;
+        mesh.position.set(x + 0.5 + (this.hash(x * 3, z) % 40) / 100, y + 0.1, z + 0.5);
+      } else if (type === 1) {
+        // Rock candy crystal
+        const geo = new THREE.ConeGeometry(0.1, 0.5, 5);
+        const crystalColors = [0xd4f1ff, 0xaaffee, 0xffccdd];
+        const color = crystalColors[this.hash(x * 7, z * 3) % crystalColors.length];
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.4, emissive: color, emissiveIntensity: 0.1 });
+        mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x + 0.5, y + 0.25, z + 0.5);
+        mesh.rotation.z = ((this.hash(x * 5, z * 7) % 40) - 20) / 100;
+      } else {
+        // Small rock
+        const geo = new THREE.DodecahedronGeometry(0.12, 0);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x998877, roughness: 0.9 });
+        mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x + 0.5, y + 0.08, z + 0.5);
+      }
+    } else if (type === 0) {
       // Small candy flower
       const color = this.flowerColors[this.hash(x, z) % this.flowerColors.length];
       const geo = new THREE.SphereGeometry(0.15, 5, 5);
@@ -285,12 +336,19 @@ export class World {
     return null;
   }
 
-  addTree(x, y, z, chunkKey) {
-    const trunkHeight = 4 + (this.hash(x * 3, z * 5) % 3);
+  addTree(x, y, z, chunkKey, biome = 'cotton_candy_forest') {
     const variant = this.hash(x, z) % 4;
+    let trunkHeight, trunkColor;
 
-    const trunkColors = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699];
-    const trunkColor = trunkColors[variant];
+    if (biome === 'gumdrop_mountains') {
+      trunkHeight = 2 + (this.hash(x * 3, z * 5) % 2);
+      const mtTrunkColors = [0xd2a679, 0xc49060, 0xb07848, 0xcc8833];
+      trunkColor = mtTrunkColors[variant];
+    } else {
+      trunkHeight = 4 + (this.hash(x * 3, z * 5) % 3);
+      const trunkColors = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699];
+      trunkColor = trunkColors[variant];
+    }
 
     // Trunk — slightly tapered
     const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, trunkHeight, 6);
@@ -309,14 +367,25 @@ export class World {
     trunk.userData.resourceType = BLOCK_TYPES.COTTON_CANDY_WOOD;
     this.scene.add(trunk);
 
-    // Canopy — cotton candy puffs
-    const canopyColorSets = [
-      [0xff69b4, 0xff99cc, 0xffb6d5],
-      [0x55ccff, 0x77ddff, 0x99eeff],
-      [0xcc66ff, 0xdd88ff, 0xeeaaff],
-      [0xff69b4, 0x55ccff, 0xcc66ff],
-    ];
-    const canopyColors = canopyColorSets[variant];
+    // Canopy colors per biome
+    let canopyColors;
+    if (biome === 'gumdrop_mountains') {
+      const mtCanopySets = [
+        [0xff4444, 0xff6666, 0xff8888],
+        [0x44cc44, 0x66dd66, 0x88ee88],
+        [0xffaa00, 0xffcc44, 0xffdd66],
+        [0xff44ff, 0xff66ff, 0xff88ff],
+      ];
+      canopyColors = mtCanopySets[variant];
+    } else {
+      const canopyColorSets = [
+        [0xff69b4, 0xff99cc, 0xffb6d5],
+        [0x55ccff, 0x77ddff, 0x99eeff],
+        [0xcc66ff, 0xdd88ff, 0xeeaaff],
+        [0xff69b4, 0x55ccff, 0xcc66ff],
+      ];
+      canopyColors = canopyColorSets[variant];
+    }
     const canopyY = y + trunkHeight - 0.5;
     const canopy = [];
 

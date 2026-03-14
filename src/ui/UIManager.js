@@ -8,6 +8,9 @@ export class UIManager {
     this.inventoryBar = document.getElementById('inventory-bar');
     this.damageOverlay = document.getElementById('damage-overlay');
     this.shelterIndicator = document.getElementById('shelter-indicator');
+    this.deathScreen = document.getElementById('death-screen');
+    this.deathRespawn = document.getElementById('death-respawn');
+    this.cheatMessageEl = document.getElementById('cheat-message');
     this.initialized = false;
   }
 
@@ -22,8 +25,19 @@ export class UIManager {
     this.initialized = true;
   }
 
-  update(dayNight, player) {
+  update(dayNight, player, cheatMessage, cheatTimer) {
     if (!this.initialized) return;
+
+    // Cheat code message
+    if (this.cheatMessageEl) {
+      if (cheatTimer > 0 && cheatMessage) {
+        this.cheatMessageEl.style.display = 'block';
+        this.cheatMessageEl.textContent = cheatMessage;
+        this.cheatMessageEl.style.opacity = Math.min(cheatTimer * 2, 1);
+      } else {
+        this.cheatMessageEl.style.display = 'none';
+      }
+    }
 
     // Damage flash overlay
     if (this.damageOverlay) {
@@ -33,6 +47,16 @@ export class UIManager {
     // Shelter indicator
     if (this.shelterIndicator) {
       this.shelterIndicator.style.display = player.inShelter ? 'block' : 'none';
+    }
+
+    // Death screen
+    if (this.deathScreen) {
+      if (player.isDead) {
+        this.deathScreen.style.display = 'flex';
+        this.deathRespawn.style.display = player.deathTimer <= 0 ? 'block' : 'none';
+      } else {
+        this.deathScreen.style.display = 'none';
+      }
     }
 
     // Health bar

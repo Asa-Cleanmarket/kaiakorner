@@ -213,6 +213,11 @@
     <br>
     <span style="color:#7b68ee;font-size:10px">Click game to lock cursor.<br>Press ESC to unlock.</span>
   </div>
+  <div id="death-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:15;pointer-events:none;">
+    <div style="color:#ff4444;font-family:'Courier New',monospace;font-size:48px;text-shadow:0 0 20px rgba(255,68,68,0.5);letter-spacing:4px;">YOU MELTED!</div>
+    <div style="color:#ffb6d5;font-family:'Courier New',monospace;font-size:16px;margin-top:15px;">The Sour Squad got you...</div>
+    <div id="death-respawn" style="color:#44ff88;font-family:'Courier New',monospace;font-size:14px;margin-top:30px;animation:pulse 2s infinite;display:none;">[ press SPACE to respawn ]</div>
+  </div>
   <div id="damage-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.6) 100%);pointer-events:none;z-index:9;opacity:0;transition:opacity 0.1s;"></div>
   <div id="crosshair"></div>
   <div id="health-text">HEALTH</div>
@@ -221,6 +226,7 @@
     <div id="time-icon">DAY</div>
     <div id="time-remaining"></div>
   </div>
+  <div id="cheat-message" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#ffff00;font-family:'Courier New',monospace;font-size:24px;z-index:13;text-shadow:0 0 15px rgba(255,255,0,0.8);display:none;letter-spacing:3px;text-align:center;"></div>
   <div id="shelter-indicator" style="position:fixed;bottom:50px;left:50%;transform:translateX(-50%);color:#44ff88;font-family:'Courier New',monospace;font-size:14px;z-index:11;text-shadow:0 0 8px rgba(68,255,136,0.6);display:none;letter-spacing:2px;">SHELTERED - MONSTERS CAN'T REACH YOU</div>
   <div id="inventory-bar"></div>
   <script type="module" src="/src/main.js"></script>

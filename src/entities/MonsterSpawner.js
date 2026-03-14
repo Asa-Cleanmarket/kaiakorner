@@ -45,6 +45,28 @@ const MONSTER_TYPES = [
     spawnWeight: 8,
     loot: [{ type: 'gummy_block', min: 1, max: 1 }],
   },
+  {
+    name: 'Warhead Wolf',
+    bodyColor: 0x555577,
+    accentColor: 0x00ff88,
+    size: { w: 1.2, h: 1.0, d: 1.4 },
+    speed: 7,
+    health: 50,
+    damage: 15,
+    spawnWeight: 1,
+    loot: [{ type: 'crystal_sugar', min: 2, max: 4 }, { type: 'gummy_block', min: 1, max: 2 }],
+  },
+  {
+    name: 'Boba Phantom',
+    bodyColor: 0x9966cc,
+    accentColor: 0xffffff,
+    size: { w: 0.8, h: 1.8, d: 0.8 },
+    speed: 3,
+    health: 25,
+    damage: 8,
+    spawnWeight: 2,
+    loot: [{ type: 'marshmallow_pad', min: 1, max: 2 }],
+  },
 ];
 
 const MAX_MONSTERS = 12;
