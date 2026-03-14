@@ -297,6 +297,11 @@ export class Player {
   }
 
   handleActions(delta) {
+    // Unstuck — R key: lift player above terrain and drop safely (like Lakitu in Mario Kart)
+    if (this.input.justPressed('KeyR')) {
+      this.unstuck();
+    }
+
     // Flashlight
     if (this.input.justPressed('KeyF')) {
       this.flashlightOn = !this.flashlightOn;
@@ -606,6 +611,17 @@ export class Player {
       this.deathTimer = 3;
       if (this.sound) this.sound.playDeath();
     }
+  }
+
+  unstuck() {
+    // Lift player above terrain and drop them — keeps all inventory/progress
+    const groundY = this.world.getSurfaceHeight(this.position.x, this.position.z) + 1;
+    this.position.y = groundY + 5; // lift 5 blocks above surface
+    this.velocity.set(0, 0, 0);
+    this.onGround = false;
+    this.eatMessage = 'UNSTUCK! Dropping back in...';
+    this.eatMessageTimer = 2;
+    if (this.sound) this.sound.playJump();
   }
 
   respawn() {

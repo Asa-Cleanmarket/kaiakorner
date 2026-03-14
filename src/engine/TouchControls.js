@@ -91,6 +91,12 @@ export class TouchControls {
     this.flashBtn.style.cssText = btnStyle + 'position:absolute;top:60px;right:15px;width:40px;height:40px;background:rgba(255,221,170,0.2);border:2px solid rgba(255,221,170,0.5);font-size:14px;';
     this.flashBtn.textContent = 'F';
     this.container.appendChild(this.flashBtn);
+
+    // Unstuck button (top right, below flashlight)
+    this.unstuckBtn = document.createElement('div');
+    this.unstuckBtn.style.cssText = btnStyle + 'position:absolute;top:110px;right:15px;width:40px;height:40px;background:rgba(68,187,255,0.2);border:2px solid rgba(68,187,255,0.5);font-size:8px;';
+    this.unstuckBtn.textContent = 'FIX';
+    this.container.appendChild(this.unstuckBtn);
   }
 
   _setupEvents() {
@@ -184,6 +190,7 @@ export class TouchControls {
     this._tapButton(this.eatBtn, 'KeyE');
     this._tapButton(this.craftBtn, 'KeyC');
     this._tapButton(this.flashBtn, 'KeyF');
+    this._tapButton(this.unstuckBtn, 'KeyR');
 
     // Slot buttons
     for (const btn of this.slotBtns) {
