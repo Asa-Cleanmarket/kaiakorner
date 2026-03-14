@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BLOCK_TYPES, getBlockColor } from './BlockTypes.js';
 
-const REACH_DISTANCE = 6;
+const REACH_DISTANCE = 7;
 
 export class BlockPlacer {
   constructor(scene, camera, world, inventory) {
@@ -9,68 +9,112 @@ export class BlockPlacer {
     this.camera = camera;
     this.world = world;
     this.inventory = inventory;
-    this.raycaster = new THREE.Raycaster();
-    this.raycaster.far = REACH_DISTANCE;
 
-    // Preview block
-    const previewGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
-    const previewMat = new THREE.MeshBasicMaterial({
+    // Preview block — solid colored with wireframe overlay
+    this.previewGroup = new THREE.Group();
+
+    const previewGeo = new THREE.BoxGeometry(1.02, 1.02, 1.02);
+    this.previewSolid = new THREE.Mesh(previewGeo, new THREE.MeshBasicMaterial({
       color: 0xff69b4,
       transparent: true,
-      opacity: 0.3,
-      wireframe: true,
-    });
-    this.preview = new THREE.Mesh(previewGeo, previewMat);
-    this.preview.visible = false;
-    this.scene.add(this.preview);
+      opacity: 0.25,
+      depthWrite: false,
+    }));
+    this.previewWire = new THREE.Mesh(
+      new THREE.BoxGeometry(1.03, 1.03, 1.03),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.6,
+      })
+    );
+    this.previewGroup.add(this.previewSolid, this.previewWire);
+    this.previewGroup.visible = false;
+    this.scene.add(this.previewGroup);
+
+    // Break highlight
+    this.breakHighlight = new THREE.Mesh(
+      new THREE.BoxGeometry(1.01, 1.01, 1.01),
+      new THREE.MeshBasicMaterial({
+        color: 0xff4444,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.8,
+      })
+    );
+    this.breakHighlight.visible = false;
+    this.scene.add(this.breakHighlight);
 
     this.placeTimer = 0;
     this.breakTimer = 0;
+    this.justPlaced = false;
+    this.justBroke = false;
   }
 
   update(input) {
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-
-    // Only show building UI when a block is selected (not a weapon)
     const isWeapon = this.inventory.getSelectedWeaponStats() !== null;
-
-    // Find the block we're looking at
     const target = this.findTargetBlock();
 
+    // Reset single-click flags
+    this.justPlaced = false;
+    this.justBroke = false;
+
     if (target) {
-      // Show preview only when holding a block
-      this.preview.visible = !isWeapon;
-      if (!isWeapon) {
-        this.preview.position.set(
+      // Show placement preview when holding a block
+      if (!isWeapon && this.inventory.getSelectedBlockType()) {
+        this.previewGroup.visible = true;
+        this.previewGroup.position.set(
           target.placePos.x + 0.5,
           target.placePos.y + 0.5,
           target.placePos.z + 0.5
         );
+        // Color the preview to match selected block
+        const blockType = this.inventory.getSelectedBlockType();
+        const color = getBlockColor(blockType);
+        this.previewSolid.material.color.copy(color);
+      } else {
+        this.previewGroup.visible = false;
       }
 
-      // Right click: place block (always works if you have blocks)
-      if (input.mouseButtons.right) {
+      // Show break highlight when hovering with a block selected
+      if (!isWeapon) {
+        this.breakHighlight.visible = true;
+        this.breakHighlight.position.set(
+          target.blockPos.x + 0.5,
+          target.blockPos.y + 0.5,
+          target.blockPos.z + 0.5
+        );
+      } else {
+        this.breakHighlight.visible = false;
+      }
+
+      // Right click: place block
+      if (input.mouseButtons.right && !isWeapon) {
         this.placeTimer += 0.016;
-        if (this.placeTimer > 0.2) {
+        if (this.placeTimer > 0.15) {
           this.placeBlock(target.placePos);
           this.placeTimer = 0;
+          this.justPlaced = true;
         }
       } else {
-        this.placeTimer = 0.15; // allow first click to be fast
+        this.placeTimer = 0.1; // fast first click
       }
 
       // Left click: break block (only when NOT holding a weapon)
       if (input.mouseButtons.left && !isWeapon) {
         this.breakTimer += 0.016;
-        if (this.breakTimer > 0.3) {
+        if (this.breakTimer > 0.2) {
           this.breakBlock(target.blockPos);
           this.breakTimer = 0;
+          this.justBroke = true;
         }
       } else {
-        this.breakTimer = 0.25;
+        this.breakTimer = 0.15; // fast first click
       }
     } else {
-      this.preview.visible = false;
+      this.previewGroup.visible = false;
+      this.breakHighlight.visible = false;
     }
   }
 
@@ -79,7 +123,6 @@ export class BlockPlacer {
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
 
-    // Step along the ray
     const step = 0.1;
     const pos = origin.clone();
     let lastEmpty = null;
@@ -108,6 +151,13 @@ export class BlockPlacer {
 
     const count = this.inventory.getCount(selectedType);
     if (count <= 0) return;
+
+    // Don't place inside the player
+    const camPos = this.camera.position;
+    const dx = Math.abs(camPos.x - (pos.x + 0.5));
+    const dy = Math.abs(camPos.y - 0.8 - (pos.y + 0.5));
+    const dz = Math.abs(camPos.z - (pos.z + 0.5));
+    if (dx < 0.8 && dy < 1.2 && dz < 0.8) return;
 
     this.world.setBlock(pos.x, pos.y, pos.z, selectedType);
     this.inventory.remove(selectedType, 1);

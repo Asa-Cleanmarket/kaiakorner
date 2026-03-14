@@ -100,16 +100,16 @@ export class Game {
   }
 
   setupEnvironment() {
-    // Ground plane
+    // Ground plane — far below terrain so it never clips through
     const groundGeo = new THREE.PlaneGeometry(2000, 2000);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x5ae088,
+      color: 0x3bb868,
       roughness: 0.9,
       metalness: 0,
     });
     this.groundPlane = new THREE.Mesh(groundGeo, groundMat);
     this.groundPlane.rotation.x = -Math.PI / 2;
-    this.groundPlane.position.y = 9;
+    this.groundPlane.position.y = -1;
     this.groundPlane.receiveShadow = true;
     this.scene.add(this.groundPlane);
 

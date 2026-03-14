@@ -278,6 +278,7 @@ export class World {
         vertexColors: true,
         roughness: 0.85,
         metalness: 0,
+        side: THREE.DoubleSide,
       });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
@@ -511,8 +512,8 @@ export class World {
             color = color.clone(); color.r += v; color.g += v * 0.5;
           }
           const faces = [];
-          if (!this.blockData.has(this.blockKey(wx, y + 1, wz))) faces.push('top');
-          if (y > 0 && !this.blockData.has(this.blockKey(wx, y - 1, wz))) faces.push('bottom');
+          if (!this.hasBlock(wx, y + 1, wz)) faces.push('top');
+          if (y > 0 && !this.hasBlock(wx, y - 1, wz)) faces.push('bottom');
           if (!this.hasBlock(wx + 1, y, wz)) faces.push('right');
           if (!this.hasBlock(wx - 1, y, wz)) faces.push('left');
           if (!this.hasBlock(wx, y, wz + 1)) faces.push('front');
@@ -541,7 +542,7 @@ export class World {
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
       geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
       geometry.setIndex(indices);
-      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -551,7 +552,11 @@ export class World {
   }
 
   isSolid(x, y, z) {
-    return this.blockData.has(this.blockKey(Math.floor(x), Math.floor(y), Math.floor(z)));
+    const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+    if (this.blockData.has(this.blockKey(bx, by, bz))) return true;
+    // Fallback to procedural height for ungenerated chunks
+    const h = this.getHeight(bx, bz);
+    return by >= 0 && by <= h;
   }
 
   getSurfaceHeight(x, z) {

@@ -1,4 +1,4 @@
-import { BLOCK_NAMES, ITEM_NAMES } from '../world/BlockTypes.js';
+import { BLOCK_NAMES, ITEM_NAMES, WEAPON_STATS, getBlockColor } from '../world/BlockTypes.js';
 
 export class UIManager {
   constructor(game) {
@@ -155,9 +155,21 @@ export class UIManager {
       const item = hotbarItems[i];
       slot.className = 'inv-slot' + (item.selected ? ' active' : '');
       if (item.type) {
-        slot.innerHTML = `<span style="font-size:8px">${item.name}</span><br><span style="font-size:10px">${item.count}</span>`;
+        const isWeapon = !!WEAPON_STATS[item.type];
+        let swatchColor;
+        if (isWeapon) {
+          swatchColor = item.type === 'lollipop_axe' ? '#ff69b4' : '#7b68ee';
+        } else {
+          const c = getBlockColor(item.type);
+          swatchColor = `rgb(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)})`;
+        }
+        const icon = isWeapon ? (item.type === 'lollipop_axe' ? '&#x2694;' : '&#x1F3AF;') : '';
+        slot.innerHTML = `<span class="slot-num">${i + 1}</span>`
+          + `<div class="slot-swatch" style="background:${swatchColor}">${icon ? `<span style="font-size:14px;display:flex;align-items:center;justify-content:center;height:100%">${icon}</span>` : ''}</div>`
+          + `<span class="slot-name">${item.name}</span>`
+          + `<span class="slot-count">${item.count}</span>`;
       } else {
-        slot.innerHTML = `<span style="font-size:10px;opacity:0.3">${i + 1}</span>`;
+        slot.innerHTML = `<span class="slot-num" style="font-size:12px;position:static;opacity:0.3">${i + 1}</span>`;
       }
     }
 
