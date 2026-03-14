@@ -13,6 +13,7 @@ import { NPCGumsworth } from '../entities/NPCGumsworth.js';
 import { BossTaffy } from '../entities/BossTaffy.js';
 import { CraftingSystem } from '../systems/CraftingSystem.js';
 import { ProgressionSystem } from '../systems/ProgressionSystem.js';
+import { SoundManager } from '../systems/SoundManager.js';
 
 export class Game {
   constructor() {
@@ -50,6 +51,7 @@ export class Game {
     this.bossTaffy = new BossTaffy(this.scene, this.world);
     this.crafting = new CraftingSystem(this.inventory);
     this.progression = new ProgressionSystem();
+    this.sound = new SoundManager();
     this.gumsTimer = 120;
     this.bossTimer = 600;
     this.lastNightState = false;
@@ -59,9 +61,13 @@ export class Game {
     this.player.particles = this.particles;
     this.player.bossTaffy = this.bossTaffy;
     this.player.progression = this.progression;
+    this.player.sound = this.sound;
     this.blockPlacer.progression = this.progression;
+    this.blockPlacer.sound = this.sound;
     this.monsterSpawner.progression = this.progression;
+    this.monsterSpawner.sound = this.sound;
     this.crafting.progression = this.progression;
+    this.crafting.sound = this.sound;
 
     this.setupLighting();
     this.setupEnvironment();
@@ -203,10 +209,15 @@ export class Game {
     if (this.started) return;
     this.started = true;
 
+    this.sound.init();
+    this.sound.resume();
+    this.sound.startMusic(false);
+
     this.renderer.domElement.requestPointerLock();
     document.addEventListener('click', () => {
       if (this.started && !document.pointerLockElement) {
         this.renderer.domElement.requestPointerLock();
+        this.sound.resume();
       }
     });
 
@@ -228,7 +239,7 @@ export class Game {
     this.world.update(this.player.position, elapsed);
     this.blockPlacer.update(this.input);
     this.monsterSpawner.update(delta, this.dayNight);
-    this.dog.update(delta, this.monsterSpawner);
+    this.dog.update(delta, this.monsterSpawner, this.bossTaffy);
     this.particles.update(delta, this.player.position, this.dayNight);
 
     // Gumsworth NPC — spawns periodically
@@ -245,6 +256,7 @@ export class Game {
       this.bossTimer -= delta;
     } else if (!this.bossTaffy.active && !this.bossTaffy.defeated && this.dayNight.cycleCount >= 1) {
       this.bossTaffy.spawn(this.player.position);
+      this.sound.playBossSpawn();
     }
     const bossDmg = this.bossTaffy.update(delta, this.player.position, this.inventory);
     if (bossDmg > 0) this.player.takeDamage(bossDmg);
@@ -272,11 +284,26 @@ export class Game {
     this.progression.update(delta);
     const currentBiome = this.world.getBiome(Math.floor(this.player.position.x), Math.floor(this.player.position.z));
     this.progression.onBiomeVisited(currentBiome);
-    // Night survival tracking
+    // Night survival tracking + day/night sounds
     if (this.lastNightState && this.dayNight.isDay) {
       this.progression.onNightSurvived();
+      this.sound.playDawn();
+      this.sound.stopMusic();
+      setTimeout(() => this.sound.startMusic(false), 2000);
+    }
+    if (!this.lastNightState && !this.dayNight.isDay) {
+      this.sound.playNightfall();
+      this.sound.stopMusic();
+      setTimeout(() => this.sound.startMusic(true), 2000);
     }
     this.lastNightState = !this.dayNight.isDay;
+
+    // Level-up max health sync
+    this.player.maxHealth = 100 + this.progression.getMaxHealthBonus();
+
+    // Sound for level-up and badges
+    if (this.progression.levelUpTimer > 3.9) this.sound.playLevelUp();
+    if (this.progression.badgeTimer > 3.9) this.sound.playBadge();
 
     this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth, this.progression);
     if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;

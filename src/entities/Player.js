@@ -87,6 +87,31 @@ export class Player {
     barrel.position.z = -0.3;
     this.launcherModel.add(tube, barrel);
 
+    // Candy Cane Sword model: striped blade + handle
+    this.swordModel = new THREE.Group();
+    const blade = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.3, emissive: 0xff4444, emissiveIntensity: 0.1 })
+    );
+    const bladeStripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.03, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    );
+    blade.rotation.x = Math.PI / 2;
+    bladeStripe.rotation.x = Math.PI / 2;
+    const swordHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.18, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.3, metalness: 0.4 })
+    );
+    swordHandle.rotation.x = Math.PI / 2;
+    swordHandle.position.z = 0.35;
+    const guard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.04, 0.04),
+      new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.3, metalness: 0.4 })
+    );
+    guard.position.z = 0.25;
+    this.swordModel.add(blade, bladeStripe, swordHandle, guard);
+
     // Bare fist model
     this.fistModel = new THREE.Mesh(
       new THREE.BoxGeometry(0.12, 0.12, 0.2),
@@ -175,6 +200,7 @@ export class Player {
     if (moveDir.lengthSq() > 0) moveDir.normalize();
 
     let speed = MOVE_SPEED;
+    if (this.progression) speed *= this.progression.getSpeedBonus();
     if (this.sugarRush > 0) speed *= 1.5;
     if (this.sugarCrash > 0) speed *= 0.5;
     if (this.input.isDown('ShiftLeft')) speed *= 1.4;
@@ -190,6 +216,7 @@ export class Player {
     if (this.input.isDown('Space') && this.onGround) {
       this.velocity.y = JUMP_FORCE;
       this.onGround = false;
+      if (this.sound) this.sound.playJump();
     }
 
     // Horizontal collision
@@ -264,7 +291,10 @@ export class Player {
       const count = this.inventory.getCount('cotton_candy_wood');
       if (count > 0) {
         this.inventory.remove('cotton_candy_wood', 1);
-        this.health = Math.min(this.maxHealth, this.health + 20);
+        // Apply level-based max health
+        const effectiveMax = this.progression ? this.maxHealth + this.progression.getMaxHealthBonus() : this.maxHealth;
+        this.health = Math.min(effectiveMax, this.health + 20);
+        if (this.sound) this.sound.playEat();
         if (this.progression) this.progression.onCandyEaten();
         this.sugarRush += 5;
         this.eatMessage = this.health >= this.maxHealth ? 'YUM! Sugar Rush!' : `+20 HP! (${Math.round(this.health)}/${this.maxHealth})`;
@@ -311,12 +341,16 @@ export class Player {
     // Ranged weapon — shoot projectile
     if (weaponStats && weaponStats.type === 'ranged') {
       this.shootProjectile(origin.clone(), dir.clone(), weaponStats);
+      if (this.sound) this.sound.playShoot();
       return;
     }
 
-    // Melee attack
+    if (this.sound) this.sound.playSwing();
+
+    // Melee attack — scale damage with level
+    const dmgMult = this.progression ? this.progression.getDamageMultiplier() : 1;
     const treeDamage = weaponStats ? weaponStats.treeDamage : 1;
-    const monsterDamage = weaponStats ? weaponStats.monsterDamage : ATTACK_DAMAGE;
+    const monsterDamage = Math.round((weaponStats ? weaponStats.monsterDamage : ATTACK_DAMAGE) * dmgMult);
     const range = weaponStats ? weaponStats.range : ATTACK_RANGE;
 
     // Check for tree chopping first
@@ -327,6 +361,7 @@ export class Player {
 
     if (tree && treeDamage > 0) {
       tree.trunk.userData.health -= treeDamage;
+      if (this.sound) this.sound.playChopTree();
 
       // Visual feedback — flash the trunk
       const origColor = tree.trunk.material.color.getHex();
@@ -356,8 +391,9 @@ export class Player {
     // Melee attack monsters
     if (this.monsterSpawner) {
       const hit = this.monsterSpawner.attackMonstersInRange(origin, dir, range, monsterDamage);
-      if (hit && this.particles) {
-        this.particles.spawnHitEffect(origin.clone().addScaledVector(dir, 2.5), 0xffffff);
+      if (hit) {
+        if (this.particles) this.particles.spawnHitEffect(origin.clone().addScaledVector(dir, 2.5), 0xffffff);
+        if (this.sound) this.sound.playHit();
       }
     }
 
@@ -367,6 +403,7 @@ export class Player {
       const toBoss = new THREE.Vector3().subVectors(bossPos, origin);
       if (toBoss.length() < range + 2) {
         this.bossTaffy.takeDamage(monsterDamage);
+        if (this.sound) this.sound.playHit();
         if (this.particles) {
           this.particles.spawnHitEffect(bossPos.clone().add(new THREE.Vector3(0, 3, 0)), 0xcc44ff);
         }
@@ -410,19 +447,66 @@ export class Player {
       p.mesh.position.addScaledVector(p.dir, p.speed * delta);
       p.light.position.copy(p.mesh.position);
 
+      // Spin the projectile
+      p.mesh.rotation.x += delta * 15;
+      p.mesh.rotation.z += delta * 10;
+
+      // Spawn trail particle
+      p.trailTimer = (p.trailTimer || 0) + delta;
+      if (p.trailTimer > 0.03) {
+        p.trailTimer = 0;
+        const trail = new THREE.Mesh(
+          new THREE.SphereGeometry(0.06, 4, 4),
+          new THREE.MeshBasicMaterial({ color: p.mesh.material.color.getHex(), transparent: true, opacity: 0.5 })
+        );
+        trail.position.copy(p.mesh.position);
+        this.scene.add(trail);
+        if (!p.trails) p.trails = [];
+        p.trails.push({ mesh: trail, life: 0.3 });
+      }
+      // Update trails
+      if (p.trails) {
+        for (let j = p.trails.length - 1; j >= 0; j--) {
+          p.trails[j].life -= delta;
+          p.trails[j].mesh.material.opacity = Math.max(0, p.trails[j].life * 1.5);
+          p.trails[j].mesh.scale.setScalar(p.trails[j].life * 2);
+          if (p.trails[j].life <= 0) {
+            this.scene.remove(p.trails[j].mesh);
+            p.trails.splice(j, 1);
+          }
+        }
+      }
+
       // Check monster hit
+      const dmgMult = this.progression ? this.progression.getDamageMultiplier() : 1;
+      const scaledDamage = Math.round(p.damage * dmgMult);
       let hit = false;
       if (this.monsterSpawner) {
         for (const monster of this.monsterSpawner.monsters) {
           const dist = p.mesh.position.distanceTo(monster.group.position);
           if (dist < 1.5) {
-            monster.health -= p.damage;
+            monster.health -= scaledDamage;
             monster.group.position.addScaledVector(p.dir, 1.0);
-            if (this.particles) {
-              this.particles.spawnHitEffect(p.mesh.position.clone(), 0xff69b4);
-            }
+            if (this.particles) this.particles.spawnHitEffect(p.mesh.position.clone(), 0xff69b4);
+            if (this.sound) this.sound.playHit();
             hit = true;
             break;
+          }
+        }
+      }
+
+      // Check boss hit
+      if (!hit && this.bossTaffy && this.bossTaffy.active) {
+        const dist = p.mesh.position.distanceTo(this.bossTaffy.group.position);
+        if (dist < 3) {
+          this.bossTaffy.takeDamage(scaledDamage);
+          if (this.particles) this.particles.spawnHitEffect(p.mesh.position.clone(), 0xcc44ff);
+          if (this.sound) this.sound.playHit();
+          hit = true;
+          if (this.bossTaffy.defeated) {
+            this.inventory.add('crystal_sugar', 20);
+            this.inventory.add('rainbow_block', 10);
+            if (this.progression) this.progression.onBossDefeated();
           }
         }
       }
@@ -431,6 +515,9 @@ export class Player {
         this.scene.remove(p.mesh);
         this.scene.remove(p.light);
         p.light.dispose();
+        if (p.trails) {
+          for (const t of p.trails) this.scene.remove(t.mesh);
+        }
         this.projectiles.splice(i, 1);
       }
     }
@@ -447,6 +534,7 @@ export class Player {
     let targetModel = this.fistModel;
     if (selected === 'lollipop_axe') targetModel = this.axeModel;
     else if (selected === 'gumball_launcher') targetModel = this.launcherModel;
+    else if (selected === 'candy_cane_sword') targetModel = this.swordModel;
 
     if (this.currentWeaponModel !== targetModel) {
       while (this.hand.children.length) this.hand.remove(this.hand.children[0]);
@@ -495,9 +583,11 @@ export class Player {
     if (this.isDead) return;
     this.health = Math.max(0, this.health - amount);
     this.damageFlash = 1;
+    if (this.sound) this.sound.playDamage();
     if (this.health <= 0) {
       this.isDead = true;
-      this.deathTimer = 3; // 3 seconds before respawn available
+      this.deathTimer = 3;
+      if (this.sound) this.sound.playDeath();
     }
   }
 

@@ -335,6 +335,61 @@
     </div>
   </div>
   <div id="inventory-bar"></div>
+  <div id="feedback-btn" onclick="document.getElementById('feedback-panel').style.display='flex'" style="position:fixed;bottom:20px;right:20px;z-index:12;background:rgba(0,0,0,0.6);border:2px solid #7b68ee;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;font-size:18px;color:#ffb6d5;user-select:none;" title="Report Bug / Request Feature">!</div>
+  <div id="feedback-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,0,30,0.95);border:2px solid #7b68ee;border-radius:8px;padding:20px;z-index:16;display:none;flex-direction:column;gap:10px;min-width:320px;max-width:90%;font-family:'Courier New',monospace;pointer-events:auto;">
+    <div style="color:#ff69b4;font-size:16px;text-align:center;letter-spacing:3px;">BUG REPORT / FEATURE REQUEST</div>
+    <div style="color:#888;font-size:11px;text-align:center;">Tell us what's broken or what you'd like to see!</div>
+    <select id="feedback-type" style="background:#1a0a2e;color:#ffb6d5;border:1px solid #7b68ee;padding:8px;border-radius:4px;font-family:'Courier New',monospace;font-size:12px;">
+      <option value="bug">Bug Report</option>
+      <option value="feature">Feature Request</option>
+      <option value="idea">Cool Idea</option>
+    </select>
+    <textarea id="feedback-text" rows="4" placeholder="Describe what happened or what you want..." style="background:#1a0a2e;color:#ffb6d5;border:1px solid #7b68ee;padding:8px;border-radius:4px;font-family:'Courier New',monospace;font-size:12px;resize:vertical;"></textarea>
+    <div style="display:flex;gap:8px;">
+      <button onclick="submitFeedback()" style="flex:1;background:rgba(255,105,180,0.2);color:#ff69b4;border:1px solid #ff69b4;padding:8px;border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;">SEND</button>
+      <button onclick="document.getElementById('feedback-panel').style.display='none'" style="flex:1;background:rgba(123,104,238,0.2);color:#7b68ee;border:1px solid #7b68ee;padding:8px;border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;">CANCEL</button>
+    </div>
+    <div id="feedback-status" style="color:#44ff88;font-size:11px;text-align:center;display:none;"></div>
+  </div>
+  <script>
+    function submitFeedback() {
+      const type = document.getElementById('feedback-type').value;
+      const text = document.getElementById('feedback-text').value.trim();
+      if (!text) return;
+      const status = document.getElementById('feedback-status');
+      const label = type === 'bug' ? 'bug' : type === 'feature' ? 'enhancement' : 'idea';
+      // Create GitHub issue via API
+      fetch('https://api.github.com/repos/Asa-Cleanmarket/kaiakorner/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + (window.__ghToken || '') },
+        body: JSON.stringify({ title: '[' + label.toUpperCase() + '] ' + text.slice(0, 80), body: '**Type:** ' + label + '\n\n' + text + '\n\n---\n*Submitted from in-game feedback*', labels: [label] })
+      }).then(r => {
+        if (r.ok) {
+          status.textContent = 'Sent! Thank you!';
+          status.style.display = 'block';
+          document.getElementById('feedback-text').value = '';
+          setTimeout(() => { document.getElementById('feedback-panel').style.display = 'none'; status.style.display = 'none'; }, 2000);
+        } else {
+          // Fallback: save locally
+          const feedback = JSON.parse(localStorage.getItem('ccc_feedback') || '[]');
+          feedback.push({ type: label, text, date: new Date().toISOString() });
+          localStorage.setItem('ccc_feedback', JSON.stringify(feedback));
+          status.textContent = 'Saved locally! Dad will see it.';
+          status.style.display = 'block';
+          document.getElementById('feedback-text').value = '';
+          setTimeout(() => { document.getElementById('feedback-panel').style.display = 'none'; status.style.display = 'none'; }, 2000);
+        }
+      }).catch(() => {
+        const feedback = JSON.parse(localStorage.getItem('ccc_feedback') || '[]');
+        feedback.push({ type: label, text, date: new Date().toISOString() });
+        localStorage.setItem('ccc_feedback', JSON.stringify(feedback));
+        status.textContent = 'Saved locally! Dad will see it.';
+        status.style.display = 'block';
+        document.getElementById('feedback-text').value = '';
+        setTimeout(() => { document.getElementById('feedback-panel').style.display = 'none'; status.style.display = 'none'; }, 2000);
+      });
+    }
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

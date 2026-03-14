@@ -62,6 +62,51 @@ export const RECIPES = [
       { type: BLOCK_TYPES.CARAMEL_BLOCK, count: 1 },
     ],
   },
+  {
+    name: 'Frosting Plaster',
+    result: BLOCK_TYPES.FROSTING_PLASTER,
+    resultCount: 4,
+    ingredients: [
+      { type: BLOCK_TYPES.CRYSTAL_SUGAR, count: 2 },
+      { type: BLOCK_TYPES.MARSHMALLOW_PAD, count: 1 },
+    ],
+  },
+  {
+    name: 'Peppermint Crystal',
+    result: BLOCK_TYPES.PEPPERMINT_CRYSTAL,
+    resultCount: 2,
+    ingredients: [
+      { type: BLOCK_TYPES.CRYSTAL_SUGAR, count: 3 },
+      { type: BLOCK_TYPES.GLASS_CANDY, count: 1 },
+    ],
+  },
+  {
+    name: 'Jellybean Brick',
+    result: BLOCK_TYPES.JELLYBEAN_BRICK,
+    resultCount: 4,
+    ingredients: [
+      { type: BLOCK_TYPES.GUMMY_BLOCK, count: 2 },
+      { type: BLOCK_TYPES.PINK_BRICK, count: 1 },
+    ],
+  },
+  {
+    name: 'Caramel Block',
+    result: BLOCK_TYPES.CARAMEL_BLOCK,
+    resultCount: 4,
+    ingredients: [
+      { type: BLOCK_TYPES.GRAHAM_CRACKER, count: 3 },
+    ],
+  },
+  {
+    name: 'Candy Cane Sword',
+    result: ITEM_TYPES.CANDY_CANE_SWORD,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.CANDY_CANE_BEAM, count: 4 },
+      { type: BLOCK_TYPES.CRYSTAL_SUGAR, count: 5 },
+      { type: BLOCK_TYPES.RAINBOW_BLOCK, count: 2 },
+    ],
+  },
 ];
 
 export class CraftingSystem {
@@ -89,6 +134,7 @@ export class CraftingSystem {
     }
     this.inventory.add(recipe.result, recipe.resultCount);
     if (this.progression) this.progression.onItemCrafted();
+    if (this.sound) this.sound.playCraft();
     return true;
   }
 

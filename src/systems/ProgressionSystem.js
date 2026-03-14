@@ -150,10 +150,22 @@ export class ProgressionSystem {
     this.addXp(100, 'badge');
   }
 
+  // Level-based stat bonuses
+  getMaxHealthBonus() {
+    return (this.level - 1) * 5; // +5 HP per level
+  }
+
+  getDamageMultiplier() {
+    return 1 + (this.level - 1) * 0.05; // +5% damage per level
+  }
+
+  getSpeedBonus() {
+    return 1 + (this.level - 1) * 0.02; // +2% speed per level
+  }
+
   update(delta) {
     if (this.levelUpTimer > 0) this.levelUpTimer -= delta;
     if (this.badgeTimer > 0) this.badgeTimer -= delta;
-    // Drain xp gain queue
     if (this.xpGainQueue.length > 5) this.xpGainQueue = this.xpGainQueue.slice(-5);
   }
 }

@@ -165,6 +165,10 @@ export class NPCGumsworth {
       { give: { type: 'cotton_candy_wood', count: 10 }, get: { type: 'gummy_block', count: 5 } },
       { give: { type: 'crystal_sugar', count: 5 }, get: { type: 'rainbow_block', count: 2 } },
       { give: { type: 'pink_brick', count: 10 }, get: { type: 'marshmallow_pad', count: 8 } },
+      { give: { type: 'graham_cracker', count: 8 }, get: { type: 'caramel_block', count: 4 } },
+      { give: { type: 'chocolate_slab', count: 5 }, get: { type: 'peppermint_crystal', count: 3 } },
+      { give: { type: 'rainbow_block', count: 3 }, get: { type: 'candy_cane_beam', count: 8 } },
+      { give: { type: 'marshmallow_pad', count: 10 }, get: { type: 'glass_candy', count: 6 } },
     ];
   }
 

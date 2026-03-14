@@ -46,11 +46,13 @@ export function getBlockColor(type) {
 export const ITEM_TYPES = {
   LOLLIPOP_AXE: 'lollipop_axe',
   GUMBALL_LAUNCHER: 'gumball_launcher',
+  CANDY_CANE_SWORD: 'candy_cane_sword',
 };
 
 export const ITEM_NAMES = {
   [ITEM_TYPES.LOLLIPOP_AXE]: 'Lolli Axe',
   [ITEM_TYPES.GUMBALL_LAUNCHER]: 'Gumball',
+  [ITEM_TYPES.CANDY_CANE_SWORD]: 'CC Sword',
 };
 
 export const WEAPON_STATS = {
@@ -63,11 +65,18 @@ export const WEAPON_STATS = {
   },
   [ITEM_TYPES.GUMBALL_LAUNCHER]: {
     treeDamage: 0,
-    monsterDamage: 8,
+    monsterDamage: 13,
     range: 30,
-    cooldown: 0.25,
+    cooldown: 0.2,
     type: 'ranged',
-    projectileSpeed: 40,
+    projectileSpeed: 45,
+  },
+  [ITEM_TYPES.CANDY_CANE_SWORD]: {
+    treeDamage: 1,
+    monsterDamage: 22,
+    range: 3.5,
+    cooldown: 0.3,
+    type: 'melee',
   },
 };
 

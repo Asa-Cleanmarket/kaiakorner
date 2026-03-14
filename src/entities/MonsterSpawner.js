@@ -42,7 +42,7 @@ const MONSTER_TYPES = [
     speed: 6,
     health: 8,
     damage: 4,
-    spawnWeight: 8,
+    spawnWeight: 4,
     loot: [{ type: 'gummy_block', min: 1, max: 1 }],
   },
   {
@@ -258,6 +258,7 @@ export class MonsterSpawner {
     monster.glowLight.dispose();
     this.monsters.splice(index, 1);
     if (this.progression) this.progression.onMonsterKilled();
+    if (this.sound) this.sound.playMonsterDeath();
   }
 
   // Called by player attack system

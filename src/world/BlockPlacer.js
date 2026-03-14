@@ -162,6 +162,7 @@ export class BlockPlacer {
     this.world.setBlock(pos.x, pos.y, pos.z, selectedType);
     this.inventory.remove(selectedType, 1);
     if (this.progression) this.progression.onBlockPlaced();
+    if (this.sound) this.sound.playBlockPlace();
   }
 
   breakBlock(pos) {
@@ -173,5 +174,6 @@ export class BlockPlacer {
 
     this.world.setBlock(pos.x, pos.y, pos.z, null);
     this.inventory.add(blockType, 1);
+    if (this.sound) this.sound.playBlockBreak();
   }
 }

@@ -2,9 +2,9 @@ import * as THREE from 'three';
 
 const DOG_SPEED = 8;
 const FOLLOW_DISTANCE = 3;
-const ATTACK_RANGE = 5;
-const ATTACK_DAMAGE = 5;
-const ATTACK_COOLDOWN = 1.5;
+const ATTACK_RANGE = 6;
+const ATTACK_DAMAGE = 10;
+const ATTACK_COOLDOWN = 1.2;
 
 export class DogCompanion {
   constructor(scene, player, world) {
@@ -163,7 +163,7 @@ export class DogCompanion {
     this.hearts.push(heart);
   }
 
-  update(delta, monsterSpawner) {
+  update(delta, monsterSpawner, bossTaffy) {
     if (!this.active) return;
 
     this.attackCooldown = Math.max(0, this.attackCooldown - delta);
@@ -173,28 +173,45 @@ export class DogCompanion {
     toPlayer.y = 0;
     const distToPlayer = toPlayer.length();
 
-    // Find nearest monster
-    let nearestMonster = null;
+    // Find nearest enemy (monsters + boss)
+    let nearestTarget = null;
     let nearestDist = ATTACK_RANGE;
+    let targetIsBoss = false;
+
     if (monsterSpawner) {
       for (const monster of monsterSpawner.monsters) {
         const d = this.group.position.distanceTo(monster.group.position);
         if (d < nearestDist) {
           nearestDist = d;
-          nearestMonster = monster;
+          nearestTarget = monster;
+          targetIsBoss = false;
         }
       }
     }
 
+    // Also check boss
+    if (bossTaffy && bossTaffy.active) {
+      const d = this.group.position.distanceTo(bossTaffy.group.position);
+      if (d < nearestDist + 3) { // Prioritize boss slightly
+        nearestDist = d;
+        nearestTarget = bossTaffy;
+        targetIsBoss = true;
+      }
+    }
+
     let moveTarget;
-    if (nearestMonster && nearestDist < ATTACK_RANGE) {
-      // Attack mode — move toward monster
-      moveTarget = nearestMonster.group.position;
-      this.targetMonster = nearestMonster;
+    if (nearestTarget && nearestDist < ATTACK_RANGE) {
+      moveTarget = targetIsBoss ? nearestTarget.group.position : nearestTarget.group.position;
+      this.targetMonster = nearestTarget;
 
       // Attack if close enough
-      if (nearestDist < 2 && this.attackCooldown <= 0) {
-        nearestMonster.health -= ATTACK_DAMAGE;
+      const attackDist = targetIsBoss ? 4 : 2;
+      if (nearestDist < attackDist && this.attackCooldown <= 0) {
+        if (targetIsBoss) {
+          nearestTarget.takeDamage(ATTACK_DAMAGE);
+        } else {
+          nearestTarget.health -= ATTACK_DAMAGE;
+        }
         this.attackCooldown = ATTACK_COOLDOWN;
 
         // Lunge + glow animation
@@ -207,17 +224,14 @@ export class DogCompanion {
           }
         }, 200);
 
-        // Spawn attack hearts
         this.spawnHeartParticle();
         this.spawnHeartParticle();
       }
     } else if (distToPlayer > FOLLOW_DISTANCE) {
-      // Follow player
       moveTarget = this.player.position;
       this.targetMonster = null;
     } else {
       this.targetMonster = null;
-      // Idle near player — occasional happy heart
       if (Math.random() < 0.002) {
         this.spawnHeartParticle();
       }
