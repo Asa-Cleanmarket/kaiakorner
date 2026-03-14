@@ -301,9 +301,17 @@ export class Game {
     // Level-up max health sync
     this.player.maxHealth = 100 + this.progression.getMaxHealthBonus();
 
-    // Sound for level-up and badges
-    if (this.progression.levelUpTimer > 3.9) this.sound.playLevelUp();
-    if (this.progression.badgeTimer > 3.9) this.sound.playBadge();
+    // Sound for level-up and badges (play once, not every frame)
+    if (this.progression.levelUpTimer > 3.9 && !this._levelUpSoundPlayed) {
+      this.sound.playLevelUp();
+      this._levelUpSoundPlayed = true;
+    }
+    if (this.progression.levelUpTimer <= 3.9) this._levelUpSoundPlayed = false;
+    if (this.progression.badgeTimer > 3.9 && !this._badgeSoundPlayed) {
+      this.sound.playBadge();
+      this._badgeSoundPlayed = true;
+    }
+    if (this.progression.badgeTimer <= 3.9) this._badgeSoundPlayed = false;
 
     this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth, this.progression);
     if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;
