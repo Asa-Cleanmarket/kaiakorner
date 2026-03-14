@@ -19,6 +19,8 @@ export class InputManager {
       this.keys[e.code] = false;
     });
 
+    this.isMobile = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
+
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement) {
         this.mouseDelta.x += e.movementX;

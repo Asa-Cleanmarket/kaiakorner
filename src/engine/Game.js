@@ -14,6 +14,7 @@ import { BossTaffy } from '../entities/BossTaffy.js';
 import { CraftingSystem } from '../systems/CraftingSystem.js';
 import { ProgressionSystem } from '../systems/ProgressionSystem.js';
 import { SoundManager } from '../systems/SoundManager.js';
+import { TouchControls } from './TouchControls.js';
 
 export class Game {
   constructor() {
@@ -22,8 +23,9 @@ export class Game {
 
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const isMobileDevice = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
+    this.renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -68,6 +70,12 @@ export class Game {
     this.monsterSpawner.sound = this.sound;
     this.crafting.progression = this.progression;
     this.crafting.sound = this.sound;
+
+    // Detect mobile/tablet
+    this.isMobile = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
+    if (this.isMobile) {
+      this.touchControls = new TouchControls(this.input);
+    }
 
     this.setupLighting();
     this.setupEnvironment();
@@ -211,15 +219,20 @@ export class Game {
 
     this.sound.init();
     this.sound.resume();
-    this.sound.startMusic(false);
 
-    this.renderer.domElement.requestPointerLock();
-    document.addEventListener('click', () => {
-      if (this.started && !document.pointerLockElement) {
-        this.renderer.domElement.requestPointerLock();
-        this.sound.resume();
-      }
-    });
+    if (this.isMobile) {
+      // Mobile: show touch controls, no pointer lock
+      this.touchControls.show();
+    } else {
+      // Desktop: pointer lock for mouse look
+      this.renderer.domElement.requestPointerLock();
+      document.addEventListener('click', () => {
+        if (this.started && !document.pointerLockElement) {
+          this.renderer.domElement.requestPointerLock();
+          this.sound.resume();
+        }
+      });
+    }
 
     this.world.generate(this.player.position);
     this.ui.init();
@@ -288,13 +301,9 @@ export class Game {
     if (this.lastNightState && this.dayNight.isDay) {
       this.progression.onNightSurvived();
       this.sound.playDawn();
-      this.sound.stopMusic();
-      setTimeout(() => this.sound.startMusic(false), 2000);
     }
     if (!this.lastNightState && !this.dayNight.isDay) {
       this.sound.playNightfall();
-      this.sound.stopMusic();
-      setTimeout(() => this.sound.startMusic(true), 2000);
     }
     this.lastNightState = !this.dayNight.isDay;
 

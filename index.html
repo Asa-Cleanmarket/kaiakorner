@@ -2,12 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>Cotton Candy Cove</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #1a0a2e; font-family: 'Courier New', monospace; }
-    canvas { display: block; }
+    html, body { overflow: hidden; background: #1a0a2e; font-family: 'Courier New', monospace; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; position: fixed; width: 100%; height: 100%; }
+    canvas { display: block; touch-action: none; }
+    /* On mobile, hide desktop-only elements */
+    @media (pointer: coarse) {
+      #crosshair { display: none !important; }
+      #controls-toggle { display: none !important; }
+      #controls-panel { display: none !important; }
+      #inventory-bar { bottom: 30px !important; }
+      #health-bar-container { bottom: 34px !important; left: 170px !important; width: 100px !important; height: 14px !important; }
+      #health-text { bottom: 50px !important; left: 170px !important; font-size: 10px !important; }
+      #minimap { bottom: 50px !important; width: 80px !important; height: 80px !important; }
+      #start-screen h1 { font-size: 28px !important; }
+      #tutorial-screen { font-size: 11px !important; }
+    }
     #ui-overlay {
       position: fixed;
       top: 0;
@@ -331,7 +346,7 @@
       <div style="margin-top:20px;padding:12px;background:rgba(255,105,180,0.1);border:1px solid rgba(255,105,180,0.3);border-radius:6px;">
         <div style="color:#ffcc00;font-size:12px;text-align:center;letter-spacing:1px;">TIPS: Build a shelter (walls + roof) before night! Monsters come out when it's dark. Your dog Cotton Pup will help fight them. Craft better blocks with C!</div>
       </div>
-      <div style="color:#ffb6d5;font-size:14px;text-align:center;margin-top:25px;animation:pulse 2s infinite;">[ click anywhere to start playing ]</div>
+      <div style="color:#ffb6d5;font-size:14px;text-align:center;margin-top:25px;animation:pulse 2s infinite;">[ tap or click to start playing ]</div>
     </div>
   </div>
   <div id="inventory-bar"></div>
