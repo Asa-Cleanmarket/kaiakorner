@@ -132,6 +132,62 @@
       0%, 100% { opacity: 0.5; }
       50% { opacity: 1; }
     }
+    #controls-toggle {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 12;
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid #ff69b4;
+      border-radius: 6px;
+      color: #ffb6d5;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 6px 12px;
+      cursor: pointer;
+      pointer-events: auto;
+      user-select: none;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    #controls-toggle:hover {
+      background: rgba(255, 105, 180, 0.2);
+      border-color: #ffb6d5;
+    }
+    #controls-panel {
+      position: fixed;
+      top: 55px;
+      left: 20px;
+      z-index: 12;
+      background: rgba(10, 5, 25, 0.85);
+      border: 2px solid #7b68ee;
+      border-radius: 8px;
+      color: #ffb6d5;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 14px 18px;
+      pointer-events: auto;
+      display: none;
+      line-height: 1.8;
+      min-width: 220px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    #controls-panel h3 {
+      color: #ff69b4;
+      font-size: 13px;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+    #controls-panel .key {
+      display: inline-block;
+      background: rgba(123, 104, 238, 0.3);
+      border: 1px solid #7b68ee;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #fff;
+      font-size: 10px;
+      min-width: 20px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -139,6 +195,21 @@
     <h1>COTTON CANDY COVE</h1>
     <p>A Kaia Games Inc. Production</p>
     <span class="click-text">[ click to enter the cove ]</span>
+  </div>
+  <div id="controls-toggle" onclick="document.getElementById('controls-panel').style.display = document.getElementById('controls-panel').style.display === 'block' ? 'none' : 'block'">? CONTROLS</div>
+  <div id="controls-panel">
+    <h3>CONTROLS</h3>
+    <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Move<br>
+    <span class="key">Mouse</span> Look around<br>
+    <span class="key">Space</span> Jump<br>
+    <span class="key">Shift</span> Sprint<br>
+    <span class="key">L-Click</span> Break block<br>
+    <span class="key">R-Click</span> Place block<br>
+    <span class="key">F</span> Flashlight<br>
+    <span class="key">E</span> Eat candy (heal)<br>
+    <span class="key">Scroll</span> / <span class="key">1-9</span> Change slot<br>
+    <br>
+    <span style="color:#7b68ee;font-size:10px">Click game to lock cursor.<br>Press ESC to unlock.</span>
   </div>
   <div id="crosshair"></div>
   <div id="health-text">HEALTH</div>
