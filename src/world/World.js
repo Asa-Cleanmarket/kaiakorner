@@ -278,7 +278,6 @@ export class World {
         vertexColors: true,
         roughness: 0.85,
         metalness: 0,
-        side: THREE.DoubleSide,
       });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
@@ -401,7 +400,7 @@ export class World {
       metalness: 0,
     });
     const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.set(x + 0.5, y + trunkHeight / 2 - 0.5, z + 0.5);
+    trunk.position.set(x + 0.5, y + trunkHeight / 2, z + 0.5);
     trunk.castShadow = true;
     trunk.receiveShadow = true;
     trunk.userData.type = 'tree';
@@ -423,7 +422,7 @@ export class World {
     } else {
       canopyColors = [[0xff69b4,0xff99cc,0xffb6d5],[0x55ccff,0x77ddff,0x99eeff],[0xcc66ff,0xdd88ff,0xeeaaff],[0xff69b4,0x55ccff,0xcc66ff]][variant];
     }
-    const canopyY = y + trunkHeight - 0.5;
+    const canopyY = y + trunkHeight;
     const canopy = [];
 
     const canopyCount = 5 + (this.hash(x * 11, z * 17) % 3);
@@ -542,7 +541,7 @@ export class World {
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
       geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
       geometry.setIndex(indices);
-      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;

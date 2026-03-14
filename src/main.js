@@ -5,5 +5,11 @@ const game = new Game();
 
 document.getElementById('start-screen').addEventListener('click', () => {
   document.getElementById('start-screen').style.display = 'none';
-  game.start();
+  // Show tutorial screen
+  const tutorial = document.getElementById('tutorial-screen');
+  tutorial.style.display = 'flex';
+  tutorial.addEventListener('click', () => {
+    tutorial.style.display = 'none';
+    game.start();
+  }, { once: true });
 });

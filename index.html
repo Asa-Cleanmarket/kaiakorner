@@ -292,7 +292,48 @@
     <div id="crafting-recipes" style="font-family:'Courier New',monospace;font-size:12px;"></div>
     <div style="color:#666;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-top:12px;">Press C to close • Click recipe to craft</div>
   </div>
+  <div id="action-msg" style="position:fixed;bottom:85px;left:50%;transform:translateX(-50%);color:#44ff88;font-family:'Courier New',monospace;font-size:16px;z-index:13;text-shadow:0 0 10px rgba(68,255,136,0.6);display:none;letter-spacing:2px;text-align:center;"></div>
   <canvas id="minimap" width="120" height="120" style="position:fixed;bottom:80px;right:10px;z-index:11;border:2px solid rgba(255,105,180,0.5);border-radius:4px;background:rgba(0,0,0,0.3);image-rendering:pixelated;"></canvas>
+  <div id="tutorial-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,5,25,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;pointer-events:auto;cursor:pointer;font-family:'Courier New',monospace;">
+    <div style="max-width:600px;width:90%;padding:30px;">
+      <div style="color:#ff69b4;font-size:28px;text-align:center;letter-spacing:4px;margin-bottom:8px;text-shadow:0 0 15px rgba(255,105,180,0.5);">HOW TO PLAY</div>
+      <div style="color:#7b68ee;font-size:12px;text-align:center;margin-bottom:25px;letter-spacing:2px;">Cotton Candy Cove — Survival Guide</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px 30px;color:#ffb6d5;font-size:13px;line-height:1.7;">
+        <div>
+          <div style="color:#ff69b4;font-size:14px;margin-bottom:6px;letter-spacing:2px;">MOVE</div>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">W A S D</span> Walk<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Space</span> Jump<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Shift</span> Sprint<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Mouse</span> Look around
+        </div>
+        <div>
+          <div style="color:#ff69b4;font-size:14px;margin-bottom:6px;letter-spacing:2px;">BUILD</div>
+          <span style="color:#44ff88;">Select a BLOCK (keys 3-4)</span><br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Right-Click</span> Place block<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Left-Click</span> Break block<br>
+          <span style="color:#888;">Stack blocks to build walls!</span>
+        </div>
+        <div>
+          <div style="color:#ff69b4;font-size:14px;margin-bottom:6px;letter-spacing:2px;">FIGHT</div>
+          <span style="color:#44ff88;">Select a WEAPON (keys 1-2)</span><br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">Left-Click</span> Attack/Chop<br>
+          <span style="color:#888;">Axe = melee, Gumball = ranged</span><br>
+          <span style="color:#888;">Chop trees for CC Wood!</span>
+        </div>
+        <div>
+          <div style="color:#ff69b4;font-size:14px;margin-bottom:6px;letter-spacing:2px;">SURVIVE</div>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">E</span> Eat candy (heals + speed)<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">C</span> Crafting menu<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">F</span> Flashlight (for night)<br>
+          <span style="color:#fff;background:rgba(123,104,238,0.3);padding:2px 6px;border-radius:3px;border:1px solid #7b68ee;">T</span> Trade with Gumsworth
+        </div>
+      </div>
+      <div style="margin-top:20px;padding:12px;background:rgba(255,105,180,0.1);border:1px solid rgba(255,105,180,0.3);border-radius:6px;">
+        <div style="color:#ffcc00;font-size:12px;text-align:center;letter-spacing:1px;">TIPS: Build a shelter (walls + roof) before night! Monsters come out when it's dark. Your dog Cotton Pup will help fight them. Craft better blocks with C!</div>
+      </div>
+      <div style="color:#ffb6d5;font-size:14px;text-align:center;margin-top:25px;animation:pulse 2s infinite;">[ click anywhere to start playing ]</div>
+    </div>
+  </div>
   <div id="inventory-bar"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

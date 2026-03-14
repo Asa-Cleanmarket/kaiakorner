@@ -44,6 +44,10 @@ export class Player {
     // Damage flash
     this.damageFlash = 0;
 
+    // Eat feedback
+    this.eatMessage = '';
+    this.eatMessageTimer = 0;
+
     // Marshmallow flashlight
     this.flashlight = new THREE.SpotLight(0xffddaa, 0, 30, Math.PI / 4.5, 0.6, 1.5);
     this.flashlightOn = false;
@@ -255,20 +259,26 @@ export class Player {
       this.flashlightOn = !this.flashlightOn;
     }
 
-    // Eat cotton candy
+    // Eat cotton candy (E key) — works even at full health for sugar rush
     if (this.input.justPressed('KeyE')) {
       const count = this.inventory.getCount('cotton_candy_wood');
-      if (count > 0 && this.health < this.maxHealth) {
+      if (count > 0) {
         this.inventory.remove('cotton_candy_wood', 1);
         this.health = Math.min(this.maxHealth, this.health + 20);
         if (this.progression) this.progression.onCandyEaten();
         this.sugarRush += 5;
+        this.eatMessage = this.health >= this.maxHealth ? 'YUM! Sugar Rush!' : `+20 HP! (${Math.round(this.health)}/${this.maxHealth})`;
+        this.eatMessageTimer = 1.5;
         if (this.sugarRush > 15) {
           this.sugarCrash = 15;
           this.sugarRush = 0;
+          this.eatMessage = 'SUGAR CRASH! Too much candy!';
+          this.eatMessageTimer = 2;
         }
       }
     }
+    // Eat message timer
+    if (this.eatMessageTimer > 0) this.eatMessageTimer -= delta;
 
     // Attack cooldown
     this.attackTimer = Math.max(0, this.attackTimer - delta);

@@ -23,6 +23,8 @@ export class UIManager {
     this.xpBar = document.getElementById('xp-bar');
     this.levelUpMsg = document.getElementById('level-up-msg');
     this.badgeMsg = document.getElementById('badge-msg');
+    this.actionMsg = document.getElementById('action-msg');
+    this.tutorialScreen = document.getElementById('tutorial-screen');
     this.initialized = false;
   }
 
@@ -47,6 +49,17 @@ export class UIManager {
         this.cheatMessageEl.style.opacity = Math.min(cheatTimer * 2, 1);
       } else {
         this.cheatMessageEl.style.display = 'none';
+      }
+    }
+
+    // Action/eat messages
+    if (this.actionMsg) {
+      if (player.eatMessageTimer > 0 && player.eatMessage) {
+        this.actionMsg.style.display = 'block';
+        this.actionMsg.textContent = player.eatMessage;
+        this.actionMsg.style.opacity = Math.min(player.eatMessageTimer, 1);
+      } else {
+        this.actionMsg.style.display = 'none';
       }
     }
 
