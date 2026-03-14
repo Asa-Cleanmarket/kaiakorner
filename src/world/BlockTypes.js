@@ -20,12 +20,12 @@ export const BLOCK_TYPES = {
 };
 
 const BLOCK_COLORS = {
-  [BLOCK_TYPES.GRASS]:              new THREE.Color(0x88dd88).lerp(new THREE.Color(0xff69b4), 0.3),
-  [BLOCK_TYPES.COTTON_CANDY_WOOD]:  new THREE.Color(0xffb6d5),
-  [BLOCK_TYPES.PINK_BRICK]:         new THREE.Color(0xff8fbc),
-  [BLOCK_TYPES.CRYSTAL_SUGAR]:      new THREE.Color(0xe0f0ff),
+  [BLOCK_TYPES.GRASS]:              new THREE.Color(0x4de680),  // vibrant candy mint green
+  [BLOCK_TYPES.COTTON_CANDY_WOOD]:  new THREE.Color(0xff8ec4),  // bright pink
+  [BLOCK_TYPES.PINK_BRICK]:         new THREE.Color(0xe87aab),  // medium pink
+  [BLOCK_TYPES.CRYSTAL_SUGAR]:      new THREE.Color(0xd4f1ff),
   [BLOCK_TYPES.FROSTING_PLASTER]:   new THREE.Color(0xfff5ee),
-  [BLOCK_TYPES.GUMMY_BLOCK]:        new THREE.Color(0xff6b9d),
+  [BLOCK_TYPES.GUMMY_BLOCK]:        new THREE.Color(0xff5c8a),
   [BLOCK_TYPES.CANDY_CANE_BEAM]:    new THREE.Color(0xff4444),
   [BLOCK_TYPES.JELLYBEAN_BRICK]:    new THREE.Color(0xff9933),
   [BLOCK_TYPES.GRAHAM_CRACKER]:     new THREE.Color(0xd2a679),
@@ -35,27 +35,26 @@ const BLOCK_COLORS = {
   [BLOCK_TYPES.PEPPERMINT_CRYSTAL]: new THREE.Color(0xaaffee),
   [BLOCK_TYPES.CARAMEL_BLOCK]:      new THREE.Color(0xcc8833),
   [BLOCK_TYPES.MARSHMALLOW_PAD]:    new THREE.Color(0xfff8f0),
-  [BLOCK_TYPES.RAINBOW_BLOCK]:      new THREE.Color(0xff69b4), // will cycle in-game
+  [BLOCK_TYPES.RAINBOW_BLOCK]:      new THREE.Color(0xff69b4),
 };
 
 export function getBlockColor(type) {
   return BLOCK_COLORS[type] || new THREE.Color(0xff69b4);
 }
 
-// Display names for inventory
 export const BLOCK_NAMES = {
   [BLOCK_TYPES.GRASS]:              'Candy Grass',
-  [BLOCK_TYPES.COTTON_CANDY_WOOD]:  'Cotton Candy Wood',
+  [BLOCK_TYPES.COTTON_CANDY_WOOD]:  'CC Wood',
   [BLOCK_TYPES.PINK_BRICK]:         'Pink Brick',
-  [BLOCK_TYPES.CRYSTAL_SUGAR]:      'Crystal Sugar',
+  [BLOCK_TYPES.CRYSTAL_SUGAR]:      'Crystal',
   [BLOCK_TYPES.FROSTING_PLASTER]:   'Frosting',
-  [BLOCK_TYPES.GUMMY_BLOCK]:        'Gummy Block',
+  [BLOCK_TYPES.GUMMY_BLOCK]:        'Gummy',
   [BLOCK_TYPES.CANDY_CANE_BEAM]:    'Candy Cane',
   [BLOCK_TYPES.JELLYBEAN_BRICK]:    'Jellybean',
-  [BLOCK_TYPES.GRAHAM_CRACKER]:     'Graham Cracker',
+  [BLOCK_TYPES.GRAHAM_CRACKER]:     'Graham',
   [BLOCK_TYPES.CHOCOLATE_SLAB]:     'Chocolate',
   [BLOCK_TYPES.BUBBLEGUM_RUBBER]:   'Bubblegum',
-  [BLOCK_TYPES.GLASS_CANDY]:        'Glass Candy',
+  [BLOCK_TYPES.GLASS_CANDY]:        'Glass',
   [BLOCK_TYPES.PEPPERMINT_CRYSTAL]: 'Peppermint',
   [BLOCK_TYPES.CARAMEL_BLOCK]:      'Caramel',
   [BLOCK_TYPES.MARSHMALLOW_PAD]:    'Marshmallow',

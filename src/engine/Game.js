@@ -11,17 +11,19 @@ import { MonsterSpawner } from '../entities/MonsterSpawner.js';
 export class Game {
   constructor() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
-    this.renderer = new THREE.WebGLRenderer({ antialias: false }); // pixelated look
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(1); // keep it chunky/retro
+    this.scene.background = new THREE.Color(0x87ceeb);
+
+    this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: false });
+    this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap; // retro shadow style
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(this.renderer.domElement);
 
-    // Post-processing for retro look: render at lower resolution
-    this.renderScale = 0.5; // render at half res for pixelated feel
+    // Retro pixel render scale
+    this.renderScale = 0.5;
     this.updateRenderSize();
 
     this.clock = new THREE.Clock();
@@ -37,53 +39,53 @@ export class Game {
     this.blockPlacer = new BlockPlacer(this.scene, this.camera, this.world, this.inventory);
     this.monsterSpawner = new MonsterSpawner(this.scene, this.world, this.player);
 
-    // Lighting
     this.setupLighting();
 
-    // Fog for atmosphere
-    this.scene.fog = new THREE.FogExp2(0xffb6d5, 0.008);
+    // Ground plane so you never see sky below terrain
+    // Ground plane sits at terrain base level so you never see below terrain
+    const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x4de680 }); // match candy grass
+    this.groundPlane = new THREE.Mesh(groundGeo, groundMat);
+    this.groundPlane.rotation.x = -Math.PI / 2;
+    this.groundPlane.position.y = 9; // just below min terrain height (base=10)
+    this.groundPlane.receiveShadow = true;
+    this.scene.add(this.groundPlane);
+
+    // Fog to blend terrain into sky at distance
+    this.scene.fog = new THREE.Fog(0x87ceeb, 50, 140);
 
     window.addEventListener('resize', () => this.onResize());
   }
 
   setupLighting() {
-    // Ambient light (changes with day/night)
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Strong ambient so block colors read true
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(this.ambientLight);
 
-    // Sun/moon directional light
-    this.sunLight = new THREE.DirectionalLight(0xffeedd, 1.0);
-    this.sunLight.position.set(50, 100, 50);
+    // Sun
+    this.sunLight = new THREE.DirectionalLight(0xfff5ee, 1.2);
+    this.sunLight.position.set(50, 80, 30);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 1024;
     this.sunLight.shadow.mapSize.height = 1024;
-    this.sunLight.shadow.camera.near = 0.5;
+    this.sunLight.shadow.camera.near = 1;
     this.sunLight.shadow.camera.far = 200;
-    this.sunLight.shadow.camera.left = -50;
-    this.sunLight.shadow.camera.right = 50;
-    this.sunLight.shadow.camera.top = 50;
-    this.sunLight.shadow.camera.bottom = -50;
+    this.sunLight.shadow.camera.left = -60;
+    this.sunLight.shadow.camera.right = 60;
+    this.sunLight.shadow.camera.top = 60;
+    this.sunLight.shadow.camera.bottom = -60;
     this.scene.add(this.sunLight);
+    this.scene.add(this.sunLight.target);
 
-    // Hemisphere light for sky/ground color blending
-    this.hemiLight = new THREE.HemisphereLight(0xff69b4, 0x7b68ee, 0.3);
+    // Hemisphere for pink sky / purple ground bounce
+    this.hemiLight = new THREE.HemisphereLight(0xffc0cb, 0xdda0dd, 0.4);
     this.scene.add(this.hemiLight);
-  }
-
-  updateRenderSize() {
-    const w = Math.floor(window.innerWidth * this.renderScale);
-    const h = Math.floor(window.innerHeight * this.renderScale);
-    this.renderer.setSize(w, h, false);
-    this.renderer.domElement.style.width = window.innerWidth + 'px';
-    this.renderer.domElement.style.height = window.innerHeight + 'px';
-    this.renderer.domElement.style.imageRendering = 'pixelated';
   }
 
   start() {
     if (this.started) return;
     this.started = true;
 
-    // Lock pointer for FPS controls
     this.renderer.domElement.requestPointerLock();
     document.addEventListener('click', () => {
       if (this.started && !document.pointerLockElement) {
@@ -101,9 +103,7 @@ export class Game {
     requestAnimationFrame(() => this.animate());
 
     const delta = this.clock.getDelta();
-    const elapsed = this.clock.getElapsedTime();
 
-    // Update systems
     this.dayNight.update(delta);
     this.player.update(delta);
     this.world.update(this.player.position);
@@ -111,48 +111,73 @@ export class Game {
     this.monsterSpawner.update(delta, this.dayNight);
     this.ui.update(this.dayNight, this.player);
 
-    // Update lighting based on day/night
     this.updateLighting();
 
-    // Update sun position
+    // Move sun
     const sunAngle = this.dayNight.getSunAngle();
     this.sunLight.position.set(
-      Math.cos(sunAngle) * 100,
-      Math.sin(sunAngle) * 100,
-      50
+      this.player.position.x + Math.cos(sunAngle) * 80,
+      Math.sin(sunAngle) * 80 + 10,
+      this.player.position.z + 30
     );
+    this.sunLight.target.position.copy(this.player.position);
+
+    // Keep ground plane centered on player
+    this.groundPlane.position.x = this.player.position.x;
+    this.groundPlane.position.z = this.player.position.z;
 
     this.renderer.render(this.scene, this.camera);
   }
 
   updateLighting() {
-    const t = this.dayNight.getTimeOfDay(); // 0 = midnight, 0.5 = noon
-    const isDay = this.dayNight.isDay;
+    if (this.dayNight.isDay) {
+      const p = this.dayNight.getDayProgress();
+      const sunUp = Math.sin(p * Math.PI); // 0 at dawn/dusk, 1 at noon
 
-    if (isDay) {
-      // Daytime: bright, pink-tinted
-      const dayProgress = this.dayNight.getDayProgress();
-      this.ambientLight.intensity = 0.4 + 0.4 * Math.sin(dayProgress * Math.PI);
-      this.ambientLight.color.setHex(0xffeeff);
-      this.sunLight.intensity = 0.6 + 0.6 * Math.sin(dayProgress * Math.PI);
-      this.sunLight.color.setHex(0xffeedd);
-      this.scene.fog.color.setHex(0xffb6d5);
-      this.scene.fog.density = 0.008;
-      this.scene.background = new THREE.Color(0x87ceeb).lerp(new THREE.Color(0xffb6d5), 0.3);
-      this.hemiLight.intensity = 0.3;
+      this.ambientLight.intensity = 0.5 + 0.3 * sunUp;
+      this.ambientLight.color.setHex(0xfff5ee);
+      this.sunLight.intensity = 0.8 + 0.6 * sunUp;
+      this.sunLight.color.setHex(0xfff5ee);
+      this.hemiLight.intensity = 0.3 + 0.2 * sunUp;
+
+      // Sky color: light blue with pink tint
+      this.scene.background.setHex(0x87ceeb);
+      this.scene.fog.color.setHex(0x87ceeb);
+      this.scene.fog.near = 30;
+      this.scene.fog.far = 120;
+
+      // Sunset warning — sky turns orange/pink
+      if (this.dayNight.isSunsetWarning) {
+        this.scene.background.set(0xff9966);
+        this.scene.fog.color.set(0xff9966);
+        this.sunLight.color.setHex(0xff8844);
+      }
     } else {
-      // Nighttime: dark purple, neon glow
-      const nightProgress = this.dayNight.getNightProgress();
+      // Night: dark purple, moody
+      const p = this.dayNight.getNightProgress();
+
       this.ambientLight.intensity = 0.08;
-      this.ambientLight.color.setHex(0x4400aa);
+      this.ambientLight.color.setHex(0x332266);
       this.sunLight.intensity = 0.05;
       this.sunLight.color.setHex(0x6644aa);
-      this.scene.fog.color.setHex(0x1a0a2e);
-      this.scene.fog.density = 0.015;
-      this.scene.background = new THREE.Color(0x1a0a2e);
       this.hemiLight.intensity = 0.05;
       this.hemiLight.color.setHex(0x4400ff);
+      this.hemiLight.groundColor.setHex(0x220044);
+
+      this.scene.background.setHex(0x0d0620);
+      this.scene.fog.color.setHex(0x0d0620);
+      this.scene.fog.near = 10;
+      this.scene.fog.far = 60;
     }
+  }
+
+  updateRenderSize() {
+    const w = Math.floor(window.innerWidth * this.renderScale);
+    const h = Math.floor(window.innerHeight * this.renderScale);
+    this.renderer.setSize(w, h, false);
+    this.renderer.domElement.style.width = window.innerWidth + 'px';
+    this.renderer.domElement.style.height = window.innerHeight + 'px';
+    this.renderer.domElement.style.imageRendering = 'pixelated';
   }
 
   onResize() {
