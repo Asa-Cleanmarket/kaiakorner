@@ -1,4 +1,4 @@
-import { BLOCK_TYPES, BLOCK_NAMES } from '../world/BlockTypes.js';
+import { BLOCK_TYPES, BLOCK_NAMES, ITEM_TYPES, ITEM_NAMES, WEAPON_STATS } from '../world/BlockTypes.js';
 
 const HOTBAR_SIZE = 9;
 
@@ -11,7 +11,9 @@ export class Inventory {
     // Hotbar: array of item types (or null)
     this.hotbar = new Array(HOTBAR_SIZE).fill(null);
 
-    // Start with some basic resources
+    // Start with weapons and basic resources
+    this.add(ITEM_TYPES.LOLLIPOP_AXE, 1);
+    this.add(ITEM_TYPES.GUMBALL_LAUNCHER, 1);
     this.add(BLOCK_TYPES.COTTON_CANDY_WOOD, 20);
     this.add(BLOCK_TYPES.PINK_BRICK, 10);
   }
@@ -30,6 +32,8 @@ export class Inventory {
   }
 
   remove(type, count) {
+    // Weapons can't be consumed
+    if (WEAPON_STATS[type]) return;
     const current = this.items.get(type) || 0;
     const newCount = Math.max(0, current - count);
     if (newCount === 0) {
@@ -46,8 +50,24 @@ export class Inventory {
     return this.items.get(type) || 0;
   }
 
-  getSelectedBlockType() {
+  getSelectedItem() {
     return this.hotbar[this.selectedSlot] || null;
+  }
+
+  getSelectedWeaponStats() {
+    const item = this.getSelectedItem();
+    return item ? (WEAPON_STATS[item] || null) : null;
+  }
+
+  isWeapon(type) {
+    return !!WEAPON_STATS[type];
+  }
+
+  getSelectedBlockType() {
+    const item = this.hotbar[this.selectedSlot];
+    // Weapons can't be placed as blocks
+    if (item && WEAPON_STATS[item]) return null;
+    return item || null;
   }
 
   changeSlot(direction) {
@@ -64,7 +84,7 @@ export class Inventory {
     return this.hotbar.map((type, i) => ({
       type,
       count: type ? this.getCount(type) : 0,
-      name: type ? (BLOCK_NAMES[type] || type) : null,
+      name: type ? (BLOCK_NAMES[type] || ITEM_NAMES[type] || type) : null,
       selected: i === this.selectedSlot,
     }));
   }

@@ -42,6 +42,35 @@ export function getBlockColor(type) {
   return BLOCK_COLORS[type] || new THREE.Color(0xff69b4);
 }
 
+// Weapon / tool items (not placeable blocks)
+export const ITEM_TYPES = {
+  LOLLIPOP_AXE: 'lollipop_axe',
+  GUMBALL_LAUNCHER: 'gumball_launcher',
+};
+
+export const ITEM_NAMES = {
+  [ITEM_TYPES.LOLLIPOP_AXE]: 'Lolli Axe',
+  [ITEM_TYPES.GUMBALL_LAUNCHER]: 'Gumball',
+};
+
+export const WEAPON_STATS = {
+  [ITEM_TYPES.LOLLIPOP_AXE]: {
+    treeDamage: 2,
+    monsterDamage: 15,
+    range: 4,
+    cooldown: 0.4,
+    type: 'melee',
+  },
+  [ITEM_TYPES.GUMBALL_LAUNCHER]: {
+    treeDamage: 0,
+    monsterDamage: 8,
+    range: 30,
+    cooldown: 0.25,
+    type: 'ranged',
+    projectileSpeed: 40,
+  },
+};
+
 export const BLOCK_NAMES = {
   [BLOCK_TYPES.GRASS]:              'Candy Grass',
   [BLOCK_TYPES.COTTON_CANDY_WOOD]:  'CC Wood',

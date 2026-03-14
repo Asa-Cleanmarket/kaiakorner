@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { WEAPON_STATS } from '../world/BlockTypes.js';
 
 const MOVE_SPEED = 7;
 const JUMP_FORCE = 9;
@@ -30,6 +31,7 @@ export class Player {
     this.maxHealth = 100;
     this.sugarRush = 0;
     this.sugarCrash = 0;
+    this.inShelter = false;
 
     // Combat
     this.attackTimer = 0;
@@ -45,13 +47,50 @@ export class Player {
     this.scene.add(this.flashlight);
     this.scene.add(this.flashlight.target);
 
-    // Hand/weapon visual (simple box for now)
-    this.hand = new THREE.Mesh(
-      new THREE.BoxGeometry(0.15, 0.15, 0.6),
-      new THREE.MeshStandardMaterial({ color: 0xff69b4, roughness: 0.5 })
-    );
-    this.hand.castShadow = true;
+    // Hand/weapon visuals
+    this.hand = new THREE.Group();
     this.scene.add(this.hand);
+
+    // Lollipop Axe model: stick + round candy head
+    this.axeModel = new THREE.Group();
+    const stick = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.5, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 })
+    );
+    stick.rotation.x = Math.PI / 2;
+    const candy = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0xff69b4, roughness: 0.3, emissive: 0xff69b4, emissiveIntensity: 0.1 })
+    );
+    candy.position.z = -0.3;
+    this.axeModel.add(stick, candy);
+
+    // Gumball Launcher model: tube + barrel
+    this.launcherModel = new THREE.Group();
+    const tube = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.08, 0.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x7b68ee, roughness: 0.3 })
+    );
+    tube.rotation.x = Math.PI / 2;
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.06, 0.15, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffb6d5, roughness: 0.3 })
+    );
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.3;
+    this.launcherModel.add(tube, barrel);
+
+    // Bare fist model
+    this.fistModel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.12, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0xffccaa, roughness: 0.6 })
+    );
+
+    this.hand.add(this.axeModel);
+    this.currentWeaponModel = null;
+
+    // Projectiles
+    this.projectiles = [];
 
     this.camera.position.set(8, 35, 8);
   }
@@ -73,6 +112,8 @@ export class Player {
     this.updateFlashlight();
     this.updateBuffs(delta);
     this.updateHand(delta);
+    this.updateProjectiles(delta);
+    this.inShelter = this.world.isInsideShelter(this.position.x, this.position.y, this.position.z);
 
     // Camera
     this.camera.position.set(this.position.x, this.position.y + PLAYER_HEIGHT, this.position.z);
@@ -215,7 +256,8 @@ export class Player {
 
     // Left click = attack (when not in block-break mode)
     if (this.input.mouseButtons.left && this.attackTimer <= 0) {
-      this.attackTimer = ATTACK_COOLDOWN;
+      const weaponStats = this.inventory.getSelectedWeaponStats();
+      this.attackTimer = weaponStats ? weaponStats.cooldown : ATTACK_COOLDOWN;
       this.isAttacking = true;
       this.attackAnim = 1;
       this.performAttack();
@@ -234,14 +276,27 @@ export class Player {
     this.camera.getWorldDirection(dir);
     const origin = this.camera.position.clone();
 
+    const weaponStats = this.inventory.getSelectedWeaponStats();
+
+    // Ranged weapon — shoot projectile
+    if (weaponStats && weaponStats.type === 'ranged') {
+      this.shootProjectile(origin.clone(), dir.clone(), weaponStats);
+      return;
+    }
+
+    // Melee attack
+    const treeDamage = weaponStats ? weaponStats.treeDamage : 1;
+    const monsterDamage = weaponStats ? weaponStats.monsterDamage : ATTACK_DAMAGE;
+    const range = weaponStats ? weaponStats.range : ATTACK_RANGE;
+
     // Check for tree chopping first
     const tree = this.world.findTreeNear(
       origin.clone().addScaledVector(dir, 2),
-      ATTACK_RANGE
+      range
     );
 
-    if (tree) {
-      tree.trunk.userData.health -= 1;
+    if (tree && treeDamage > 0) {
+      tree.trunk.userData.health -= treeDamage;
 
       // Visual feedback — flash the trunk
       const origColor = tree.trunk.material.color.getHex();
@@ -261,18 +316,74 @@ export class Player {
       }
 
       if (tree.trunk.userData.health <= 0) {
-        // Tree destroyed — give resources
         this.inventory.add('cotton_candy_wood', 3 + Math.floor(Math.random() * 3));
         this.world.removeTree(tree);
       }
       return;
     }
 
-    // Attack monsters
+    // Melee attack monsters
     if (this.monsterSpawner) {
-      const hit = this.monsterSpawner.attackMonstersInRange(origin, dir, ATTACK_RANGE, ATTACK_DAMAGE);
+      const hit = this.monsterSpawner.attackMonstersInRange(origin, dir, range, monsterDamage);
       if (hit && this.particles) {
         this.particles.spawnHitEffect(origin.clone().addScaledVector(dir, 2.5), 0xffffff);
+      }
+    }
+  }
+
+  shootProjectile(origin, dir, stats) {
+    const geo = new THREE.SphereGeometry(0.12, 8, 8);
+    const colors = [0xff69b4, 0x7b68ee, 0xff5252, 0x44ff88, 0xffff44];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(origin).addScaledVector(dir, 1);
+    this.scene.add(mesh);
+
+    const light = new THREE.PointLight(color, 0.5, 5);
+    light.position.copy(mesh.position);
+    this.scene.add(light);
+
+    this.projectiles.push({
+      mesh,
+      light,
+      dir: dir.clone(),
+      speed: stats.projectileSpeed,
+      damage: stats.monsterDamage,
+      life: 2,
+    });
+  }
+
+  updateProjectiles(delta) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.life -= delta;
+
+      p.mesh.position.addScaledVector(p.dir, p.speed * delta);
+      p.light.position.copy(p.mesh.position);
+
+      // Check monster hit
+      let hit = false;
+      if (this.monsterSpawner) {
+        for (const monster of this.monsterSpawner.monsters) {
+          const dist = p.mesh.position.distanceTo(monster.group.position);
+          if (dist < 1.5) {
+            monster.health -= p.damage;
+            monster.group.position.addScaledVector(p.dir, 1.0);
+            if (this.particles) {
+              this.particles.spawnHitEffect(p.mesh.position.clone(), 0xff69b4);
+            }
+            hit = true;
+            break;
+          }
+        }
+      }
+
+      if (p.life <= 0 || hit) {
+        this.scene.remove(p.mesh);
+        this.scene.remove(p.light);
+        p.light.dispose();
+        this.projectiles.splice(i, 1);
       }
     }
   }
@@ -281,6 +392,18 @@ export class Player {
     // Animate attack swing
     if (this.attackAnim > 0) {
       this.attackAnim = Math.max(0, this.attackAnim - delta * 6);
+    }
+
+    // Swap weapon model based on selected item
+    const selected = this.inventory.getSelectedItem();
+    let targetModel = this.fistModel;
+    if (selected === 'lollipop_axe') targetModel = this.axeModel;
+    else if (selected === 'gumball_launcher') targetModel = this.launcherModel;
+
+    if (this.currentWeaponModel !== targetModel) {
+      while (this.hand.children.length) this.hand.remove(this.hand.children[0]);
+      this.hand.add(targetModel);
+      this.currentWeaponModel = targetModel;
     }
 
     // Position hand in front of camera

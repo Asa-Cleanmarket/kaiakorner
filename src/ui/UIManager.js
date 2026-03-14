@@ -7,6 +7,7 @@ export class UIManager {
     this.timeRemaining = document.getElementById('time-remaining');
     this.inventoryBar = document.getElementById('inventory-bar');
     this.damageOverlay = document.getElementById('damage-overlay');
+    this.shelterIndicator = document.getElementById('shelter-indicator');
     this.initialized = false;
   }
 
@@ -27,6 +28,11 @@ export class UIManager {
     // Damage flash overlay
     if (this.damageOverlay) {
       this.damageOverlay.style.opacity = player.damageFlash > 0 ? Math.min(player.damageFlash, 0.8) : 0;
+    }
+
+    // Shelter indicator
+    if (this.shelterIndicator) {
+      this.shelterIndicator.style.display = player.inShelter ? 'block' : 'none';
     }
 
     // Health bar

@@ -179,8 +179,13 @@ export class MonsterSpawner {
     const distance = dir.length();
     dir.normalize();
 
+    // Don't approach if player is in a shelter
+    const playerInShelter = this.world.isInsideShelter(
+      this.player.position.x, this.player.position.y, this.player.position.z
+    );
+
     // Move toward player
-    if (distance > 1.8) {
+    if (distance > 1.8 && !playerInShelter) {
       monster.group.position.x += dir.x * monster.speed * delta;
       monster.group.position.z += dir.z * monster.speed * delta;
 
@@ -207,7 +212,7 @@ export class MonsterSpawner {
 
     // Attack
     monster.attackCooldown = Math.max(0, monster.attackCooldown - delta);
-    if (distance < 2.2 && monster.attackCooldown <= 0) {
+    if (distance < 2.2 && monster.attackCooldown <= 0 && !playerInShelter) {
       this.player.takeDamage(monster.damage);
       monster.attackCooldown = 1.2;
 

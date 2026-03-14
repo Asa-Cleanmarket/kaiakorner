@@ -472,6 +472,33 @@ export class World {
     if (tree.canopy) tree.canopy.forEach(c => this.scene.remove(c));
     this.trees = this.trees.filter(t => t !== tree);
   }
+
+  // Check if a position is inside a player-built shelter (roof + walls)
+  isInsideShelter(x, y, z) {
+    const bx = Math.floor(x);
+    const by = Math.floor(y);
+    const bz = Math.floor(z);
+
+    // Check for roof: any solid block above within 4 blocks
+    let hasRoof = false;
+    for (let dy = 1; dy <= 4; dy++) {
+      if (this.isSolid(bx, by + dy, bz)) { hasRoof = true; break; }
+    }
+    if (!hasRoof) return false;
+
+    // Check walls: need at least 3 of 4 cardinal directions blocked within 3 blocks
+    let wallCount = 0;
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const [dx, dz] of dirs) {
+      for (let d = 1; d <= 3; d++) {
+        if (this.isSolid(bx + dx * d, by, bz + dz * d) || this.isSolid(bx + dx * d, by + 1, bz + dz * d)) {
+          wallCount++;
+          break;
+        }
+      }
+    }
+    return wallCount >= 3;
+  }
 }
 
 const FACE_VERTICES = {
