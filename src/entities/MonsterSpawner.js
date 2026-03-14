@@ -257,6 +257,7 @@ export class MonsterSpawner {
     this.scene.remove(monster.glowLight);
     monster.glowLight.dispose();
     this.monsters.splice(index, 1);
+    if (this.progression) this.progression.onMonsterKilled();
   }
 
   // Called by player attack system

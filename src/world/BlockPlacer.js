@@ -111,6 +111,7 @@ export class BlockPlacer {
 
     this.world.setBlock(pos.x, pos.y, pos.z, selectedType);
     this.inventory.remove(selectedType, 1);
+    if (this.progression) this.progression.onBlockPlaced();
   }
 
   breakBlock(pos) {

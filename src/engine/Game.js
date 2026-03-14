@@ -12,6 +12,7 @@ import { DogCompanion } from '../entities/DogCompanion.js';
 import { NPCGumsworth } from '../entities/NPCGumsworth.js';
 import { BossTaffy } from '../entities/BossTaffy.js';
 import { CraftingSystem } from '../systems/CraftingSystem.js';
+import { ProgressionSystem } from '../systems/ProgressionSystem.js';
 
 export class Game {
   constructor() {
@@ -48,13 +49,19 @@ export class Game {
     this.gumsworth = new NPCGumsworth(this.scene, this.world);
     this.bossTaffy = new BossTaffy(this.scene, this.world);
     this.crafting = new CraftingSystem(this.inventory);
-    this.gumsTimer = 120; // Gumsworth spawns after 2 min
-    this.bossTimer = 600; // Boss spawns after first night (10 min)
+    this.progression = new ProgressionSystem();
+    this.gumsTimer = 120;
+    this.bossTimer = 600;
+    this.lastNightState = false;
 
     // Wire cross-references
     this.player.monsterSpawner = this.monsterSpawner;
     this.player.particles = this.particles;
     this.player.bossTaffy = this.bossTaffy;
+    this.player.progression = this.progression;
+    this.blockPlacer.progression = this.progression;
+    this.monsterSpawner.progression = this.progression;
+    this.crafting.progression = this.progression;
 
     this.setupLighting();
     this.setupEnvironment();
@@ -261,7 +268,17 @@ export class Game {
       }
     }
 
-    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth);
+    // Progression
+    this.progression.update(delta);
+    const currentBiome = this.world.getBiome(Math.floor(this.player.position.x), Math.floor(this.player.position.z));
+    this.progression.onBiomeVisited(currentBiome);
+    // Night survival tracking
+    if (this.lastNightState && this.dayNight.isDay) {
+      this.progression.onNightSurvived();
+    }
+    this.lastNightState = !this.dayNight.isDay;
+
+    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth, this.progression);
     if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;
 
     this.updateLighting(elapsed);

@@ -88,6 +88,7 @@ export class CraftingSystem {
       this.inventory.remove(ing.type, ing.count);
     }
     this.inventory.add(recipe.result, recipe.resultCount);
+    if (this.progression) this.progression.onItemCrafted();
     return true;
   }
 

@@ -16,6 +16,13 @@ export class UIManager {
     this.npcIndicator = document.getElementById('npc-indicator');
     this.craftingPanel = document.getElementById('crafting-panel');
     this.craftingRecipes = document.getElementById('crafting-recipes');
+    this.minimapCanvas = document.getElementById('minimap');
+    this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
+    this.minimapTimer = 0;
+    this.levelTitle = document.getElementById('level-title');
+    this.xpBar = document.getElementById('xp-bar');
+    this.levelUpMsg = document.getElementById('level-up-msg');
+    this.badgeMsg = document.getElementById('badge-msg');
     this.initialized = false;
   }
 
@@ -29,7 +36,7 @@ export class UIManager {
     this.initialized = true;
   }
 
-  update(dayNight, player, cheatMessage, cheatTimer, crafting, gumsworth) {
+  update(dayNight, player, cheatMessage, cheatTimer, crafting, gumsworth, progression) {
     if (!this.initialized) return;
 
     // Cheat code message
@@ -118,6 +125,28 @@ export class UIManager {
       indicator.style.color = '#ffb6d5';
     }
 
+    // Progression
+    if (progression && this.levelTitle) {
+      this.levelTitle.textContent = `Lv.${progression.level} ${progression.getTitle()}`;
+      this.xpBar.style.width = `${progression.getXpProgress() * 100}%`;
+
+      if (progression.levelUpTimer > 0) {
+        this.levelUpMsg.style.display = 'block';
+        this.levelUpMsg.textContent = progression.levelUpMessage;
+        this.levelUpMsg.style.opacity = Math.min(progression.levelUpTimer, 1);
+      } else {
+        this.levelUpMsg.style.display = 'none';
+      }
+
+      if (progression.badgeTimer > 0) {
+        this.badgeMsg.style.display = 'block';
+        this.badgeMsg.textContent = progression.badgeMessage;
+        this.badgeMsg.style.opacity = Math.min(progression.badgeTimer, 1);
+      } else {
+        this.badgeMsg.style.display = 'none';
+      }
+    }
+
     // Inventory hotbar
     const hotbarItems = this.game.inventory.getHotbarItems();
     const slots = this.inventoryBar.children;
@@ -131,6 +160,55 @@ export class UIManager {
         slot.innerHTML = `<span style="font-size:10px;opacity:0.3">${i + 1}</span>`;
       }
     }
+
+    // Minimap (render every 0.5s for performance)
+    this.minimapTimer -= 0.016;
+    if (this.minimapCtx && this.minimapTimer <= 0) {
+      this.minimapTimer = 0.5;
+      this.renderMinimap(player);
+    }
+  }
+
+  renderMinimap(player) {
+    const ctx = this.minimapCtx;
+    const w = 120, h = 120;
+    const scale = 4; // Each pixel = 4 blocks
+    const px = Math.floor(player.position.x);
+    const pz = Math.floor(player.position.z);
+    const world = this.game.world;
+
+    const biomeColors = {
+      cotton_candy_forest: '#4de680',
+      gumdrop_mountains: '#cc8855',
+      frosting_mountains: '#ddeeff',
+      bubblegum_swamp: '#ff66cc',
+      sprinkle_beach: '#ddbb88',
+    };
+
+    const imageData = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const wx = px + (x - w / 2) * scale;
+        const wz = pz + (y - h / 2) * scale;
+        const biome = world.getBiome(wx, wz);
+        const hex = biomeColors[biome] || '#4de680';
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        const idx = (y * w + x) * 4;
+        imageData.data[idx] = r;
+        imageData.data[idx + 1] = g;
+        imageData.data[idx + 2] = b;
+        imageData.data[idx + 3] = 180;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    // Player dot
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(w / 2 - 2, h / 2 - 2, 4, 4);
+    ctx.strokeStyle = '#ff69b4';
+    ctx.strokeRect(w / 2 - 2, h / 2 - 2, 4, 4);
   }
 
   renderCraftingRecipes(crafting) {

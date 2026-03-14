@@ -261,6 +261,7 @@ export class Player {
       if (count > 0 && this.health < this.maxHealth) {
         this.inventory.remove('cotton_candy_wood', 1);
         this.health = Math.min(this.maxHealth, this.health + 20);
+        if (this.progression) this.progression.onCandyEaten();
         this.sugarRush += 5;
         if (this.sugarRush > 15) {
           this.sugarCrash = 15;
@@ -337,6 +338,7 @@ export class Player {
       if (tree.trunk.userData.health <= 0) {
         this.inventory.add('cotton_candy_wood', 3 + Math.floor(Math.random() * 3));
         this.world.removeTree(tree);
+        if (this.progression) this.progression.onTreeChopped();
       }
       return;
     }
@@ -361,6 +363,7 @@ export class Player {
         if (this.bossTaffy.defeated) {
           this.inventory.add('crystal_sugar', 20);
           this.inventory.add('rainbow_block', 10);
+          if (this.progression) this.progression.onBossDefeated();
         }
       }
     }
