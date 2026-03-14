@@ -9,6 +9,9 @@ import { Inventory } from '../entities/Inventory.js';
 import { MonsterSpawner } from '../entities/MonsterSpawner.js';
 import { ParticleSystem } from '../entities/ParticleSystem.js';
 import { DogCompanion } from '../entities/DogCompanion.js';
+import { NPCGumsworth } from '../entities/NPCGumsworth.js';
+import { BossTaffy } from '../entities/BossTaffy.js';
+import { CraftingSystem } from '../systems/CraftingSystem.js';
 
 export class Game {
   constructor() {
@@ -42,10 +45,16 @@ export class Game {
     this.particles = new ParticleSystem(this.scene);
 
     this.dog = new DogCompanion(this.scene, this.player, this.world);
+    this.gumsworth = new NPCGumsworth(this.scene, this.world);
+    this.bossTaffy = new BossTaffy(this.scene, this.world);
+    this.crafting = new CraftingSystem(this.inventory);
+    this.gumsTimer = 120; // Gumsworth spawns after 2 min
+    this.bossTimer = 600; // Boss spawns after first night (10 min)
 
     // Wire cross-references
     this.player.monsterSpawner = this.monsterSpawner;
     this.player.particles = this.particles;
+    this.player.bossTaffy = this.bossTaffy;
 
     this.setupLighting();
     this.setupEnvironment();
@@ -97,8 +106,90 @@ export class Game {
     this.groundPlane.receiveShadow = true;
     this.scene.add(this.groundPlane);
 
+    // Sky dome — gradient from blue to white-ish at horizon
+    const skyGeo = new THREE.SphereGeometry(350, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x55aaee) },
+        bottomColor: { value: new THREE.Color(0xffeedd) },
+        offset: { value: 20 },
+        exponent: { value: 0.5 },
+      },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPos;
+        void main() {
+          float h = normalize(vWorldPos + offset).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    this.skyDome = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(this.skyDome);
+
+    // Clouds
+    this.clouds = [];
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: 1, metalness: 0,
+      transparent: true, opacity: 0.7,
+    });
+    for (let i = 0; i < 20; i++) {
+      const cloud = new THREE.Group();
+      const puffCount = 3 + Math.floor(Math.random() * 4);
+      for (let j = 0; j < puffCount; j++) {
+        const radius = 3 + Math.random() * 5;
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(radius, 7, 5),
+          cloudMat
+        );
+        puff.position.set(
+          (Math.random() - 0.5) * radius * 2,
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * radius * 1.5
+        );
+        puff.scale.y = 0.4;
+        cloud.add(puff);
+      }
+      cloud.position.set(
+        (Math.random() - 0.5) * 400,
+        50 + Math.random() * 30,
+        (Math.random() - 0.5) * 400
+      );
+      cloud.userData.speed = 0.5 + Math.random() * 1.5;
+      this.scene.add(cloud);
+      this.clouds.push(cloud);
+    }
+
+    // Water plane (low level, translucent)
+    const waterGeo = new THREE.PlaneGeometry(2000, 2000);
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x44bbff,
+      roughness: 0.1,
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.6,
+    });
+    this.waterPlane = new THREE.Mesh(waterGeo, waterMat);
+    this.waterPlane.rotation.x = -Math.PI / 2;
+    this.waterPlane.position.y = 8;
+    this.waterPlane.receiveShadow = true;
+    this.scene.add(this.waterPlane);
+
     // Fog
-    this.scene.fog = new THREE.Fog(0x87ceeb, 60, 200);
+    this.scene.fog = new THREE.Fog(0x87ceeb, 80, 250);
   }
 
   start() {
@@ -132,7 +223,45 @@ export class Game {
     this.monsterSpawner.update(delta, this.dayNight);
     this.dog.update(delta, this.monsterSpawner);
     this.particles.update(delta, this.player.position, this.dayNight);
-    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer);
+
+    // Gumsworth NPC — spawns periodically
+    if (this.gumsTimer > 0) {
+      this.gumsTimer -= delta;
+    } else if (!this.gumsworth.active) {
+      this.gumsworth.spawn(this.player.position);
+      this.gumsTimer = 180 + Math.random() * 120; // respawn 3-5 min
+    }
+    this.gumsworth.update(delta, this.player.position);
+
+    // Boss Taffy — spawns after first night
+    if (this.bossTimer > 0) {
+      this.bossTimer -= delta;
+    } else if (!this.bossTaffy.active && !this.bossTaffy.defeated && this.dayNight.cycleCount >= 1) {
+      this.bossTaffy.spawn(this.player.position);
+    }
+    const bossDmg = this.bossTaffy.update(delta, this.player.position, this.inventory);
+    if (bossDmg > 0) this.player.takeDamage(bossDmg);
+
+    // Crafting toggle
+    if (this.input.justPressed('KeyC')) {
+      this.crafting.toggle();
+    }
+
+    // NPC trading with T key
+    if (this.input.justPressed('KeyT') && this.gumsworth.interactable) {
+      // Auto-execute first available trade
+      const trades = this.gumsworth.getTrades();
+      for (const trade of trades) {
+        if (this.inventory.getCount(trade.give.type) >= trade.give.count) {
+          this.gumsworth.executeTrade(trade, this.inventory);
+          this.cheatMessage = `TRADED! +${trade.get.count} ${trade.get.type.replace(/_/g, ' ')}`;
+          this.cheatMessageTimer = 2;
+          break;
+        }
+      }
+    }
+
+    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth);
     if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;
 
     this.updateLighting(elapsed);
@@ -148,6 +277,19 @@ export class Game {
 
     this.groundPlane.position.x = this.player.position.x;
     this.groundPlane.position.z = this.player.position.z;
+    this.waterPlane.position.x = this.player.position.x;
+    this.waterPlane.position.z = this.player.position.z;
+    this.waterPlane.position.y = 8 + Math.sin(elapsed * 0.3) * 0.15;
+    this.skyDome.position.copy(this.player.position);
+
+    // Move clouds
+    for (const cloud of this.clouds) {
+      cloud.position.x += cloud.userData.speed * delta;
+      if (cloud.position.x > this.player.position.x + 220) {
+        cloud.position.x = this.player.position.x - 220;
+      }
+      cloud.position.z += Math.sin(elapsed * 0.1 + cloud.position.x * 0.01) * delta * 0.3;
+    }
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -169,22 +311,19 @@ export class Game {
 
       this.scene.background.setHex(0x87ceeb);
       this.scene.fog.color.setHex(0x87ceeb);
-      this.scene.fog.near = 60;
-      this.scene.fog.far = 200;
+      this.scene.fog.near = 80;
+      this.scene.fog.far = 250;
+      this.skyDome.material.uniforms.topColor.value.setHex(0x55aaee);
+      this.skyDome.material.uniforms.bottomColor.value.setHex(0xffeedd);
 
       if (this.dayNight.isSunsetWarning) {
         const warn = (30 - this.dayNight.getTimeRemaining()) / 30;
-        this.scene.background.lerpColors(
-          new THREE.Color(0x87ceeb),
-          new THREE.Color(0xff7744),
-          Math.min(warn * 2, 1)
-        );
+        const t = Math.min(warn * 2, 1);
+        this.scene.background.lerpColors(new THREE.Color(0x87ceeb), new THREE.Color(0xff7744), t);
         this.scene.fog.color.copy(this.scene.background);
-        this.sunLight.color.lerpColors(
-          new THREE.Color(0xfff5ee),
-          new THREE.Color(0xff6633),
-          Math.min(warn * 2, 1)
-        );
+        this.sunLight.color.lerpColors(new THREE.Color(0xfff5ee), new THREE.Color(0xff6633), t);
+        this.skyDome.material.uniforms.topColor.value.lerpColors(new THREE.Color(0x55aaee), new THREE.Color(0xff4422), t);
+        this.skyDome.material.uniforms.bottomColor.value.lerpColors(new THREE.Color(0xffeedd), new THREE.Color(0xff8844), t);
       }
     } else {
       this.ambientLight.intensity = 0.06;
@@ -202,6 +341,8 @@ export class Game {
       this.scene.fog.color.setHex(0x08031a);
       this.scene.fog.near = 8;
       this.scene.fog.far = 50;
+      this.skyDome.material.uniforms.topColor.value.setHex(0x050015);
+      this.skyDome.material.uniforms.bottomColor.value.setHex(0x110033);
     }
   }
 

@@ -272,8 +272,9 @@ export class Player {
     // Attack cooldown
     this.attackTimer = Math.max(0, this.attackTimer - delta);
 
-    // Left click = attack (when not in block-break mode)
-    if (this.input.mouseButtons.left && this.attackTimer <= 0) {
+    // Left click = attack only when weapon is selected
+    const selectedIsWeapon = this.inventory.getSelectedWeaponStats() !== null;
+    if (this.input.mouseButtons.left && this.attackTimer <= 0 && selectedIsWeapon) {
       const weaponStats = this.inventory.getSelectedWeaponStats();
       this.attackTimer = weaponStats ? weaponStats.cooldown : ATTACK_COOLDOWN;
       this.isAttacking = true;
@@ -345,6 +346,22 @@ export class Player {
       const hit = this.monsterSpawner.attackMonstersInRange(origin, dir, range, monsterDamage);
       if (hit && this.particles) {
         this.particles.spawnHitEffect(origin.clone().addScaledVector(dir, 2.5), 0xffffff);
+      }
+    }
+
+    // Attack boss if in range
+    if (this.bossTaffy && this.bossTaffy.active) {
+      const bossPos = this.bossTaffy.group.position;
+      const toBoss = new THREE.Vector3().subVectors(bossPos, origin);
+      if (toBoss.length() < range + 2) {
+        this.bossTaffy.takeDamage(monsterDamage);
+        if (this.particles) {
+          this.particles.spawnHitEffect(bossPos.clone().add(new THREE.Vector3(0, 3, 0)), 0xcc44ff);
+        }
+        if (this.bossTaffy.defeated) {
+          this.inventory.add('crystal_sugar', 20);
+          this.inventory.add('rainbow_block', 10);
+        }
       }
     }
   }

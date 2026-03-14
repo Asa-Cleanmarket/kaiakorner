@@ -113,9 +113,12 @@ export class World {
   }
 
   getBiome(wx, wz) {
-    // Large-scale noise for biome selection
-    const biomeVal = this.noise2D(wx, wz, 200);
-    if (biomeVal > 0.55) return 'gumdrop_mountains';
+    const temp = this.noise2D(wx + 1000, wz + 1000, 250);
+    const moisture = this.noise2D(wx + 5000, wz + 5000, 250);
+    if (temp > 0.6 && moisture > 0.5) return 'bubblegum_swamp';
+    if (temp > 0.55 && moisture < 0.4) return 'gumdrop_mountains';
+    if (temp < 0.35 && moisture > 0.5) return 'frosting_mountains';
+    if (temp < 0.4 && moisture < 0.35) return 'sprinkle_beach';
     return 'cotton_candy_forest';
   }
 
@@ -127,6 +130,22 @@ export class World {
       h += this.noise2D(wx, wz, 30) * 4;
       h += this.noise2D(wx, wz, 15) * 2;
       return Math.floor(h) + 14;
+    }
+    if (biome === 'frosting_mountains') {
+      h += this.noise2D(wx, wz, 50) * 14;
+      h += this.noise2D(wx, wz, 25) * 5;
+      h += this.noise2D(wx, wz, 12) * 2;
+      return Math.floor(h) + 16;
+    }
+    if (biome === 'bubblegum_swamp') {
+      h += this.noise2D(wx, wz, 100) * 2;
+      h += this.noise2D(wx, wz, 50) * 1;
+      return Math.floor(h) + 9; // Very flat, near water level
+    }
+    if (biome === 'sprinkle_beach') {
+      h += this.noise2D(wx, wz, 120) * 2;
+      h += this.noise2D(wx, wz, 40) * 0.5;
+      return Math.floor(h) + 9; // Low, flat sandy terrain
     }
     // Cotton Candy Forest (default)
     h += this.noise2D(wx, wz, 80) * 5;
@@ -154,6 +173,19 @@ export class World {
             if (y === height) blockType = BLOCK_TYPES.FROSTING_PLASTER;
             else if (y > height - 3) blockType = BLOCK_TYPES.GUMMY_BLOCK;
             else blockType = BLOCK_TYPES.JELLYBEAN_BRICK;
+          } else if (biome === 'frosting_mountains') {
+            if (y === height && height > 22) blockType = BLOCK_TYPES.FROSTING_PLASTER;
+            else if (y === height) blockType = BLOCK_TYPES.CRYSTAL_SUGAR;
+            else if (y > height - 3) blockType = BLOCK_TYPES.PEPPERMINT_CRYSTAL;
+            else blockType = BLOCK_TYPES.PINK_BRICK;
+          } else if (biome === 'bubblegum_swamp') {
+            if (y === height) blockType = BLOCK_TYPES.BUBBLEGUM_RUBBER;
+            else if (y > height - 2) blockType = BLOCK_TYPES.CHOCOLATE_SLAB;
+            else blockType = BLOCK_TYPES.GRAHAM_CRACKER;
+          } else if (biome === 'sprinkle_beach') {
+            if (y === height) blockType = BLOCK_TYPES.GRAHAM_CRACKER;
+            else if (y > height - 3) blockType = BLOCK_TYPES.CARAMEL_BLOCK;
+            else blockType = BLOCK_TYPES.PINK_BRICK;
           } else {
             if (y === height) blockType = BLOCK_TYPES.GRASS;
             else if (y > height - 3) blockType = BLOCK_TYPES.COTTON_CANDY_WOOD;
@@ -186,7 +218,7 @@ export class World {
 
           let color = getBlockColor(blockType);
           // Slight color variation for natural look
-          if (blockType === BLOCK_TYPES.GRASS || blockType === BLOCK_TYPES.FROSTING_PLASTER) {
+          if (blockType === BLOCK_TYPES.GRASS || blockType === BLOCK_TYPES.FROSTING_PLASTER || blockType === BLOCK_TYPES.BUBBLEGUM_RUBBER || blockType === BLOCK_TYPES.GRAHAM_CRACKER || blockType === BLOCK_TYPES.CRYSTAL_SUGAR) {
             const variation = ((this.hash(wx * 3, wz * 7) % 30) - 15) / 255;
             color = color.clone();
             color.r += variation;
@@ -222,7 +254,8 @@ export class World {
         }
 
         // Trees — different density per biome
-        const treeMod = biome === 'gumdrop_mountains' ? 50 : 30;
+        const treeDensity = { cotton_candy_forest: 30, gumdrop_mountains: 50, frosting_mountains: 70, bubblegum_swamp: 20, sprinkle_beach: 100 };
+        const treeMod = treeDensity[biome] || 30;
         if (this.hash(wx * 7, wz * 13) % treeMod === 0 && height > 5) {
           treePositions.push({ x: wx, y: height + 1, z: wz, biome });
         }
@@ -344,6 +377,15 @@ export class World {
       trunkHeight = 2 + (this.hash(x * 3, z * 5) % 2);
       const mtTrunkColors = [0xd2a679, 0xc49060, 0xb07848, 0xcc8833];
       trunkColor = mtTrunkColors[variant];
+    } else if (biome === 'frosting_mountains') {
+      trunkHeight = 3 + (this.hash(x * 3, z * 5) % 2);
+      trunkColor = [0xaaddee, 0xbbccdd, 0xccddee, 0x99bbcc][variant];
+    } else if (biome === 'bubblegum_swamp') {
+      trunkHeight = 5 + (this.hash(x * 3, z * 5) % 3);
+      trunkColor = [0x886655, 0x775544, 0x664433, 0x553322][variant];
+    } else if (biome === 'sprinkle_beach') {
+      trunkHeight = 5 + (this.hash(x * 3, z * 5) % 2);
+      trunkColor = [0xddbb88, 0xccaa77, 0xbb9966, 0xcc9955][variant];
     } else {
       trunkHeight = 4 + (this.hash(x * 3, z * 5) % 3);
       const trunkColors = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699];
@@ -370,21 +412,15 @@ export class World {
     // Canopy colors per biome
     let canopyColors;
     if (biome === 'gumdrop_mountains') {
-      const mtCanopySets = [
-        [0xff4444, 0xff6666, 0xff8888],
-        [0x44cc44, 0x66dd66, 0x88ee88],
-        [0xffaa00, 0xffcc44, 0xffdd66],
-        [0xff44ff, 0xff66ff, 0xff88ff],
-      ];
-      canopyColors = mtCanopySets[variant];
+      canopyColors = [[0xff4444,0xff6666,0xff8888],[0x44cc44,0x66dd66,0x88ee88],[0xffaa00,0xffcc44,0xffdd66],[0xff44ff,0xff66ff,0xff88ff]][variant];
+    } else if (biome === 'frosting_mountains') {
+      canopyColors = [[0xddeeff,0xeef5ff,0xffffff],[0xccddff,0xddeeFF,0xeef5ff],[0xbbccee,0xccddee,0xddeeff],[0xaabbdd,0xbbccee,0xccddff]][variant];
+    } else if (biome === 'bubblegum_swamp') {
+      canopyColors = [[0xff66cc,0xff44aa,0xff88dd],[0xcc44ff,0xdd66ff,0xee88ff],[0xff66cc,0xcc44ff,0xff88dd],[0xaa33dd,0xcc55ff,0xdd77ff]][variant];
+    } else if (biome === 'sprinkle_beach') {
+      canopyColors = [[0x66dd66,0x88ee88,0xaaff99],[0x77dd55,0x99ee77,0xbbff99],[0x55cc44,0x77dd66,0x99ee88],[0x66cc55,0x88dd77,0xaaee99]][variant];
     } else {
-      const canopyColorSets = [
-        [0xff69b4, 0xff99cc, 0xffb6d5],
-        [0x55ccff, 0x77ddff, 0x99eeff],
-        [0xcc66ff, 0xdd88ff, 0xeeaaff],
-        [0xff69b4, 0x55ccff, 0xcc66ff],
-      ];
-      canopyColors = canopyColorSets[variant];
+      canopyColors = [[0xff69b4,0xff99cc,0xffb6d5],[0x55ccff,0x77ddff,0x99eeff],[0xcc66ff,0xdd88ff,0xeeaaff],[0xff69b4,0x55ccff,0xcc66ff]][variant];
     }
     const canopyY = y + trunkHeight - 0.5;
     const canopy = [];

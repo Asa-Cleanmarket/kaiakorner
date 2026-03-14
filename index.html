@@ -208,8 +208,11 @@
     <span class="key">F</span> Flashlight<br>
     <span class="key">E</span> Eat candy (heal)<br>
     <span class="key">Scroll</span> / <span class="key">1-9</span> Change slot<br>
+    <span class="key">C</span> Open/close crafting<br>
+    <span class="key">T</span> Trade with Gumsworth<br>
     <br>
-    <span style="color:#44ff88;font-size:10px">Build walls + roof = shelter!<br>Monsters can't reach you inside.</span><br>
+    <span style="color:#44ff88;font-size:10px">Select a BLOCK to build (L-click break, R-click place)<br>Select a WEAPON to attack</span><br>
+    <span style="color:#44ff88;font-size:10px">Build walls + roof = shelter!</span><br>
     <br>
     <span style="color:#7b68ee;font-size:10px">Click game to lock cursor.<br>Press ESC to unlock.</span>
   </div>
@@ -228,6 +231,18 @@
   </div>
   <div id="cheat-message" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#ffff00;font-family:'Courier New',monospace;font-size:24px;z-index:13;text-shadow:0 0 15px rgba(255,255,0,0.8);display:none;letter-spacing:3px;text-align:center;"></div>
   <div id="shelter-indicator" style="position:fixed;bottom:50px;left:50%;transform:translateX(-50%);color:#44ff88;font-family:'Courier New',monospace;font-size:14px;z-index:11;text-shadow:0 0 8px rgba(68,255,136,0.6);display:none;letter-spacing:2px;">SHELTERED - MONSTERS CAN'T REACH YOU</div>
+  <div id="npc-indicator" style="position:fixed;bottom:70px;left:50%;transform:translateX(-50%);color:#ffaa33;font-family:'Courier New',monospace;font-size:14px;z-index:11;text-shadow:0 0 8px rgba(255,170,51,0.6);display:none;letter-spacing:2px;">GUMSWORTH: Press T to trade!</div>
+  <div id="boss-bar" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);width:400px;max-width:90%;z-index:12;display:none;">
+    <div id="boss-bar-name" style="color:#cc44ff;font-family:'Courier New',monospace;font-size:14px;text-align:center;text-shadow:0 0 10px rgba(204,68,255,0.6);letter-spacing:3px;margin-bottom:4px;">TAFFY THE TERRIBLE</div>
+    <div style="width:100%;height:8px;background:rgba(0,0,0,0.6);border:1px solid #cc44ff;border-radius:4px;overflow:hidden;">
+      <div id="boss-bar-fill" style="height:100%;width:100%;background:linear-gradient(90deg,#cc44ff,#dd66ff);transition:width 0.3s;"></div>
+    </div>
+  </div>
+  <div id="crafting-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,0,30,0.9);border:2px solid #ff69b4;border-radius:8px;padding:20px;z-index:14;display:none;min-width:300px;max-width:90%;">
+    <div style="color:#ff69b4;font-family:'Courier New',monospace;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;">CRAFTING</div>
+    <div id="crafting-recipes" style="font-family:'Courier New',monospace;font-size:12px;"></div>
+    <div style="color:#666;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-top:12px;">Press C to close • Click recipe to craft</div>
+  </div>
   <div id="inventory-bar"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

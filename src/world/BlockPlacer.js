@@ -31,19 +31,24 @@ export class BlockPlacer {
   update(input) {
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
+    // Only show building UI when a block is selected (not a weapon)
+    const isWeapon = this.inventory.getSelectedWeaponStats() !== null;
+
     // Find the block we're looking at
     const target = this.findTargetBlock();
 
     if (target) {
-      // Show preview at placement position
-      this.preview.visible = true;
-      this.preview.position.set(
-        target.placePos.x + 0.5,
-        target.placePos.y + 0.5,
-        target.placePos.z + 0.5
-      );
+      // Show preview only when holding a block
+      this.preview.visible = !isWeapon;
+      if (!isWeapon) {
+        this.preview.position.set(
+          target.placePos.x + 0.5,
+          target.placePos.y + 0.5,
+          target.placePos.z + 0.5
+        );
+      }
 
-      // Right click: place block
+      // Right click: place block (always works if you have blocks)
       if (input.mouseButtons.right) {
         this.placeTimer += 0.016;
         if (this.placeTimer > 0.2) {
@@ -54,8 +59,8 @@ export class BlockPlacer {
         this.placeTimer = 0.15; // allow first click to be fast
       }
 
-      // Left click: break block
-      if (input.mouseButtons.left) {
+      // Left click: break block (only when NOT holding a weapon)
+      if (input.mouseButtons.left && !isWeapon) {
         this.breakTimer += 0.016;
         if (this.breakTimer > 0.3) {
           this.breakBlock(target.blockPos);
