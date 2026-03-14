@@ -2,32 +2,39 @@ import * as THREE from 'three';
 import { BLOCK_TYPES, getBlockColor } from './BlockTypes.js';
 
 const CHUNK_SIZE = 16;
-const RENDER_DISTANCE = 4;
+const RENDER_DISTANCE = 5;
 
 export class World {
   constructor(scene) {
     this.scene = scene;
     this.chunks = new Map();
     this.chunkMeshes = new Map();
-    this.chunkTreeMeshes = new Map(); // track tree meshes per chunk for cleanup
+    this.chunkDecorations = new Map();
     this.blockData = new Map();
     this.trees = [];
+
+    // Shared materials for decorations
+    this.flowerColors = [0xff69b4, 0xff99cc, 0xcc66ff, 0x66ccff, 0xffcc66, 0xff6699];
+    this.grassBladeGeo = new THREE.PlaneGeometry(0.15, 0.5);
   }
 
-  getChunkKey(cx, cz) {
-    return `${cx},${cz}`;
-  }
+  getChunkKey(cx, cz) { return `${cx},${cz}`; }
+  blockKey(x, y, z) { return `${x},${y},${z}`; }
 
-  blockKey(x, y, z) {
-    return `${x},${y},${z}`;
-  }
+  generate(playerPos) { this.updateChunks(playerPos); }
 
-  generate(playerPos) {
+  update(playerPos, elapsed) {
     this.updateChunks(playerPos);
-  }
-
-  update(playerPos) {
-    this.updateChunks(playerPos);
+    // Animate trees gently
+    if (elapsed !== undefined) {
+      for (const tree of this.trees) {
+        if (tree.canopy) {
+          for (const c of tree.canopy) {
+            c.position.y = tree.canopyBaseY + Math.sin(elapsed * 0.8 + tree.phase) * 0.1;
+          }
+        }
+      }
+    }
   }
 
   updateChunks(playerPos) {
@@ -36,6 +43,7 @@ export class World {
 
     for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
       for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
+        if (dx * dx + dz * dz > (RENDER_DISTANCE + 0.5) * (RENDER_DISTANCE + 0.5)) continue;
         const cx = pcx + dx;
         const cz = pcz + dz;
         const key = this.getChunkKey(cx, cz);
@@ -45,7 +53,6 @@ export class World {
       }
     }
 
-    // Remove distant chunks
     for (const [key] of this.chunks) {
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - pcx) > RENDER_DISTANCE + 2 || Math.abs(cz - pcz) > RENDER_DISTANCE + 2) {
@@ -62,20 +69,27 @@ export class World {
       mesh.material.dispose();
       this.chunkMeshes.delete(key);
     }
-    // Remove tree meshes
-    const treeMeshes = this.chunkTreeMeshes.get(key);
-    if (treeMeshes) {
-      for (const m of treeMeshes) {
-        this.scene.remove(m);
-        if (m.geometry) m.geometry.dispose();
-        if (m.material) m.material.dispose();
+    const decos = this.chunkDecorations.get(key);
+    if (decos) {
+      for (const d of decos) {
+        this.scene.remove(d);
+        if (d.geometry) d.geometry.dispose();
+        if (d.material) d.material.dispose();
       }
-      this.chunkTreeMeshes.delete(key);
+      this.chunkDecorations.delete(key);
     }
+    // Remove trees belonging to this chunk
+    this.trees = this.trees.filter(t => {
+      if (t.chunkKey === key) {
+        this.scene.remove(t.trunk);
+        if (t.canopy) t.canopy.forEach(c => this.scene.remove(c));
+        return false;
+      }
+      return true;
+    });
     this.chunks.delete(key);
   }
 
-  // Deterministic hash
   hash(x, z) {
     let h = (x * 374761393 + z * 668265263 + 1274126177) & 0x7fffffff;
     h = ((h >> 13) ^ h) * 1274126177;
@@ -89,31 +103,27 @@ export class World {
     const fz = (z / scale) - iz;
     const sfx = fx * fx * (3 - 2 * fx);
     const sfz = fz * fz * (3 - 2 * fz);
-
     const v00 = (this.hash(ix, iz) % 1000) / 1000;
     const v10 = (this.hash(ix + 1, iz) % 1000) / 1000;
     const v01 = (this.hash(ix, iz + 1) % 1000) / 1000;
     const v11 = (this.hash(ix + 1, iz + 1) % 1000) / 1000;
-
     const top = v00 + (v10 - v00) * sfx;
     const bot = v01 + (v11 - v01) * sfx;
     return top + (bot - top) * sfz;
   }
 
   getHeight(wx, wz) {
-    // Smooth rolling hills — gentle, no sharp cliffs
     let h = 0;
     h += this.noise2D(wx, wz, 80) * 5;
     h += this.noise2D(wx, wz, 40) * 2.5;
     h += this.noise2D(wx, wz, 20) * 1;
-    return Math.floor(h) + 10; // high base so terrain is always thick
+    return Math.floor(h) + 10;
   }
 
   generateChunk(cx, cz) {
     const key = this.getChunkKey(cx, cz);
     this.chunks.set(key, true);
 
-    // First pass: store all block data for this chunk
     const heightMap = [];
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       heightMap[lx] = [];
@@ -122,28 +132,24 @@ export class World {
         const wz = cz * CHUNK_SIZE + lz;
         const height = this.getHeight(wx, wz);
         heightMap[lx][lz] = height;
-
         for (let y = 0; y <= height; y++) {
           let blockType;
-          if (y === height) {
-            blockType = BLOCK_TYPES.GRASS;
-          } else if (y > height - 3) {
-            blockType = BLOCK_TYPES.COTTON_CANDY_WOOD;
-          } else {
-            blockType = BLOCK_TYPES.PINK_BRICK;
-          }
+          if (y === height) blockType = BLOCK_TYPES.GRASS;
+          else if (y > height - 3) blockType = BLOCK_TYPES.COTTON_CANDY_WOOD;
+          else blockType = BLOCK_TYPES.PINK_BRICK;
           this.blockData.set(this.blockKey(wx, y, wz), blockType);
         }
       }
     }
 
-    // Second pass: build mesh with proper face culling
+    // Build mesh
     const positions = [];
     const colors = [];
     const indices = [];
     const normals = [];
     let vertCount = 0;
     const treePositions = [];
+    const flowerPositions = [];
 
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -155,9 +161,15 @@ export class World {
           const blockType = this.blockData.get(this.blockKey(wx, y, wz));
           if (!blockType) continue;
 
-          const color = getBlockColor(blockType);
+          let color = getBlockColor(blockType);
+          // Slight color variation for natural look
+          if (blockType === BLOCK_TYPES.GRASS) {
+            const variation = ((this.hash(wx * 3, wz * 7) % 30) - 15) / 255;
+            color = color.clone();
+            color.r += variation;
+            color.g += variation * 0.5;
+          }
 
-          // Check each face: only render if neighbor is air
           const faces = [];
           if (!this.hasBlock(wx, y + 1, wz)) faces.push('top');
           if (y > 0 && !this.hasBlock(wx, y - 1, wz)) faces.push('bottom');
@@ -168,22 +180,32 @@ export class World {
 
           for (const face of faces) {
             const verts = FACE_VERTICES[face];
+            // Slight ambient occlusion: darken side/bottom faces
+            let faceColor = color;
+            if (face === 'bottom') {
+              faceColor = color.clone().multiplyScalar(0.6);
+            } else if (face !== 'top') {
+              faceColor = color.clone().multiplyScalar(0.8);
+            }
+
             for (const v of verts) {
               positions.push(wx + v[0], y + v[1], wz + v[2]);
-              colors.push(color.r, color.g, color.b);
+              colors.push(faceColor.r, faceColor.g, faceColor.b);
               normals.push(...FACE_NORMALS[face]);
             }
-            indices.push(
-              vertCount, vertCount + 1, vertCount + 2,
-              vertCount, vertCount + 2, vertCount + 3
-            );
+            indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
           }
         }
 
-        // Trees — less dense, only on surface
-        if (this.hash(wx * 7, wz * 13) % 25 === 0 && height > 3) {
+        // Trees (less dense)
+        if (this.hash(wx * 7, wz * 13) % 30 === 0 && height > 5) {
           treePositions.push({ x: wx, y: height + 1, z: wz });
+        }
+
+        // Flowers/grass tufts
+        if (this.hash(wx * 11, wz * 23) % 6 === 0 && height > 5) {
+          flowerPositions.push({ x: wx, y: height + 1, z: wz });
         }
       }
     }
@@ -195,82 +217,143 @@ export class World {
       geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
       geometry.setIndex(indices);
 
-      const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+      const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.85,
+        metalness: 0,
+      });
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
       this.chunkMeshes.set(key, mesh);
     }
 
-    // Add trees
-    const treeMeshes = [];
-    for (const tp of treePositions) {
-      const meshes = this.addTree(tp.x, tp.y, tp.z);
-      treeMeshes.push(...meshes);
+    // Add decorations
+    const decos = [];
+    for (const fp of flowerPositions) {
+      const deco = this.addFlower(fp.x, fp.y, fp.z);
+      if (deco) decos.push(deco);
     }
-    if (treeMeshes.length > 0) {
-      this.chunkTreeMeshes.set(key, treeMeshes);
+    if (decos.length > 0) this.chunkDecorations.set(key, decos);
+
+    // Add trees
+    for (const tp of treePositions) {
+      this.addTree(tp.x, tp.y, tp.z, key);
     }
   }
 
-  // Check if a block exists at position — uses height function as fallback for unloaded chunks
   hasBlock(x, y, z) {
     const key = this.blockKey(x, y, z);
     if (this.blockData.has(key)) return true;
-    // For blocks in unloaded chunks, check height
     const h = this.getHeight(x, z);
     return y >= 0 && y <= h;
   }
 
-  addTree(x, y, z) {
-    const meshes = [];
-    const trunkHeight = 3 + (this.hash(x * 3, z * 5) % 3);
-    const variant = this.hash(x, z) % 3;
+  addFlower(x, y, z) {
+    const type = this.hash(x * 17, z * 31) % 3;
+    let mesh;
 
-    // Brighter trunk colors
-    const trunkColors = [0xff7eb9, 0xffadd6, 0xc88fe8];
+    if (type === 0) {
+      // Small candy flower
+      const color = this.flowerColors[this.hash(x, z) % this.flowerColors.length];
+      const geo = new THREE.SphereGeometry(0.15, 5, 5);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive: color, emissiveIntensity: 0.1 });
+      mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x + 0.3 + (this.hash(x * 3, z) % 40) / 100, y + 0.15, z + 0.3 + (this.hash(x, z * 3) % 40) / 100);
+    } else if (type === 1) {
+      // Grass tuft
+      const geo = new THREE.ConeGeometry(0.08, 0.4, 4);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x3dd070, roughness: 0.8 });
+      mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x + 0.5 + (this.hash(x * 5, z * 7) % 30 - 15) / 100, y + 0.2, z + 0.5);
+    } else {
+      // Sprinkle
+      const sprinkleColors = [0xff4488, 0x44bbff, 0xffcc00, 0xff8844, 0xaa44ff];
+      const color = sprinkleColors[this.hash(x * 13, z * 19) % sprinkleColors.length];
+      const geo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 4);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
+      mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x + 0.5, y + 0.05, z + 0.5);
+      mesh.rotation.z = Math.random() * 0.5;
+    }
+
+    if (mesh) {
+      this.scene.add(mesh);
+      return mesh;
+    }
+    return null;
+  }
+
+  addTree(x, y, z, chunkKey) {
+    const trunkHeight = 4 + (this.hash(x * 3, z * 5) % 3);
+    const variant = this.hash(x, z) % 4;
+
+    const trunkColors = [0xc87aaf, 0xd88fc2, 0xb07acc, 0xcc6699];
     const trunkColor = trunkColors[variant];
 
-    // Trunk
-    const trunkGeo = new THREE.BoxGeometry(0.8, trunkHeight, 0.8);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: trunkColor });
+    // Trunk — slightly tapered
+    const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, trunkHeight, 6);
+    const trunkMat = new THREE.MeshStandardMaterial({
+      color: trunkColor,
+      roughness: 0.7,
+      metalness: 0,
+    });
     const trunk = new THREE.Mesh(trunkGeo, trunkMat);
     trunk.position.set(x + 0.5, y + trunkHeight / 2 - 0.5, z + 0.5);
     trunk.castShadow = true;
+    trunk.receiveShadow = true;
     trunk.userData.type = 'tree';
     trunk.userData.health = 3;
+    trunk.userData.maxHealth = 3;
     trunk.userData.resourceType = BLOCK_TYPES.COTTON_CANDY_WOOD;
     this.scene.add(trunk);
-    this.trees.push(trunk);
-    meshes.push(trunk);
 
-    // Canopy — bright cotton candy puffs
-    const canopyColors = [0xff69b4, 0x69d4ff, 0xffb6d5, 0xb469ff, 0xff9ed8, 0x69f0ff];
+    // Canopy — cotton candy puffs
+    const canopyColorSets = [
+      [0xff69b4, 0xff99cc, 0xffb6d5],
+      [0x55ccff, 0x77ddff, 0x99eeff],
+      [0xcc66ff, 0xdd88ff, 0xeeaaff],
+      [0xff69b4, 0x55ccff, 0xcc66ff],
+    ];
+    const canopyColors = canopyColorSets[variant];
     const canopyY = y + trunkHeight - 0.5;
+    const canopy = [];
 
-    // Use seeded random for deterministic canopy
-    const canopyCount = 4 + (this.hash(x * 11, z * 17) % 3);
+    const canopyCount = 5 + (this.hash(x * 11, z * 17) % 3);
     for (let i = 0; i < canopyCount; i++) {
-      const radius = 1.0 + ((this.hash(x + i * 7, z + i * 13) % 100) / 100) * 0.8;
-      const geo = new THREE.IcosahedronGeometry(radius, 1); // low poly sphere
-      const color = canopyColors[this.hash(x + i * 7, z + i * 13) % canopyColors.length];
-      const mat = new THREE.MeshLambertMaterial({ color });
+      const radius = 1.0 + ((this.hash(x + i * 7, z + i * 13) % 80) / 100) * 0.8;
+      const geo = new THREE.SphereGeometry(radius, 8, 6);
+      const color = canopyColors[i % canopyColors.length];
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.6,
+        metalness: 0,
+        emissive: color,
+        emissiveIntensity: 0.05,
+      });
       const sphere = new THREE.Mesh(geo, mat);
 
-      // Deterministic offsets
       const ox = ((this.hash(x * 3 + i, z * 7) % 200) - 100) / 100 * 1.5;
-      const oy = ((this.hash(x * 5 + i, z * 11) % 100) / 100) * 2;
+      const oy = ((this.hash(x * 5 + i, z * 11) % 100) / 100) * 2.0;
       const oz = ((this.hash(x * 7 + i, z * 3) % 200) - 100) / 100 * 1.5;
 
       sphere.position.set(x + 0.5 + ox, canopyY + oy, z + 0.5 + oz);
       sphere.castShadow = true;
+      sphere.receiveShadow = true;
       sphere.userData.type = 'canopy';
       sphere.userData.parentTree = trunk;
       this.scene.add(sphere);
-      meshes.push(sphere);
+      canopy.push(sphere);
     }
 
-    return meshes;
+    this.trees.push({
+      trunk,
+      canopy,
+      canopyBaseY: canopyY,
+      phase: (this.hash(x, z) % 100) / 100 * Math.PI * 2,
+      chunkKey,
+    });
   }
 
   getBlock(x, y, z) {
@@ -280,17 +363,13 @@ export class World {
   setBlock(x, y, z, type) {
     const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
     const key = this.blockKey(bx, by, bz);
-    if (type === null) {
-      this.blockData.delete(key);
-    } else {
-      this.blockData.set(key, type);
-    }
-    // Rebuild affected chunk and neighbors
+    if (type === null) this.blockData.delete(key);
+    else this.blockData.set(key, type);
+
     const cx = Math.floor(bx / CHUNK_SIZE);
     const cz = Math.floor(bz / CHUNK_SIZE);
     this.rebuildChunkMesh(cx, cz);
 
-    // Rebuild neighbor chunks if block is at edge
     const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     if (lx === 0) this.rebuildChunkMesh(cx - 1, cz);
@@ -303,7 +382,6 @@ export class World {
     const key = this.getChunkKey(cx, cz);
     if (!this.chunks.has(key)) return;
 
-    // Remove old mesh only (keep block data and trees)
     const oldMesh = this.chunkMeshes.get(key);
     if (oldMesh) {
       this.scene.remove(oldMesh);
@@ -312,24 +390,21 @@ export class World {
       this.chunkMeshes.delete(key);
     }
 
-    // Rebuild mesh from existing blockData
-    const positions = [];
-    const colors = [];
-    const indices = [];
-    const normals = [];
+    const positions = [], colors = [], indices = [], normals = [];
     let vertCount = 0;
 
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const wx = cx * CHUNK_SIZE + lx;
         const wz = cz * CHUNK_SIZE + lz;
-        const height = this.getHeight(wx, wz);
-
-        for (let y = 0; y <= height + 10; y++) {
+        for (let y = 0; y <= this.getHeight(wx, wz) + 10; y++) {
           const blockType = this.blockData.get(this.blockKey(wx, y, wz));
           if (!blockType) continue;
-
-          const color = getBlockColor(blockType);
+          let color = getBlockColor(blockType);
+          if (blockType === BLOCK_TYPES.GRASS) {
+            const v = ((this.hash(wx * 3, wz * 7) % 30) - 15) / 255;
+            color = color.clone(); color.r += v; color.g += v * 0.5;
+          }
           const faces = [];
           if (!this.blockData.has(this.blockKey(wx, y + 1, wz))) faces.push('top');
           if (y > 0 && !this.blockData.has(this.blockKey(wx, y - 1, wz))) faces.push('bottom');
@@ -340,15 +415,15 @@ export class World {
 
           for (const face of faces) {
             const verts = FACE_VERTICES[face];
+            let fc = color;
+            if (face === 'bottom') fc = color.clone().multiplyScalar(0.6);
+            else if (face !== 'top') fc = color.clone().multiplyScalar(0.8);
             for (const v of verts) {
               positions.push(wx + v[0], y + v[1], wz + v[2]);
-              colors.push(color.r, color.g, color.b);
+              colors.push(fc.r, fc.g, fc.b);
               normals.push(...FACE_NORMALS[face]);
             }
-            indices.push(
-              vertCount, vertCount + 1, vertCount + 2,
-              vertCount, vertCount + 2, vertCount + 3
-            );
+            indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
           }
         }
@@ -361,9 +436,9 @@ export class World {
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
       geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
       geometry.setIndex(indices);
-
-      const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
       this.chunkMeshes.set(key, mesh);
@@ -377,22 +452,38 @@ export class World {
   getSurfaceHeight(x, z) {
     return this.getHeight(Math.floor(x), Math.floor(z));
   }
+
+  // Find tree near a position (for chopping)
+  findTreeNear(pos, maxDist) {
+    let closest = null;
+    let closestDist = maxDist;
+    for (const tree of this.trees) {
+      const d = tree.trunk.position.distanceTo(pos);
+      if (d < closestDist) {
+        closestDist = d;
+        closest = tree;
+      }
+    }
+    return closest;
+  }
+
+  removeTree(tree) {
+    this.scene.remove(tree.trunk);
+    if (tree.canopy) tree.canopy.forEach(c => this.scene.remove(c));
+    this.trees = this.trees.filter(t => t !== tree);
+  }
 }
 
 const FACE_VERTICES = {
-  top:    [[0,1,0], [1,1,0], [1,1,1], [0,1,1]],
-  bottom: [[0,0,1], [1,0,1], [1,0,0], [0,0,0]],
-  front:  [[0,0,1], [0,1,1], [1,1,1], [1,0,1]],
-  back:   [[1,0,0], [1,1,0], [0,1,0], [0,0,0]],
-  right:  [[1,0,1], [1,1,1], [1,1,0], [1,0,0]],
-  left:   [[0,0,0], [0,1,0], [0,1,1], [0,0,1]],
+  top: [[0,1,0],[1,1,0],[1,1,1],[0,1,1]],
+  bottom: [[0,0,1],[1,0,1],[1,0,0],[0,0,0]],
+  front: [[0,0,1],[0,1,1],[1,1,1],[1,0,1]],
+  back: [[1,0,0],[1,1,0],[0,1,0],[0,0,0]],
+  right: [[1,0,1],[1,1,1],[1,1,0],[1,0,0]],
+  left: [[0,0,0],[0,1,0],[0,1,1],[0,0,1]],
 };
 
 const FACE_NORMALS = {
-  top:    [0, 1, 0],
-  bottom: [0, -1, 0],
-  front:  [0, 0, 1],
-  back:   [0, 0, -1],
-  right:  [1, 0, 0],
-  left:   [-1, 0, 0],
+  top: [0,1,0], bottom: [0,-1,0], front: [0,0,1],
+  back: [0,0,-1], right: [1,0,0], left: [-1,0,0],
 };

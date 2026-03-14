@@ -3,46 +3,54 @@ import * as THREE from 'three';
 const MONSTER_TYPES = [
   {
     name: 'Shrek Prep',
-    color: 0x66bb6a,
-    size: { w: 1.2, h: 1.8, d: 1.0 },
-    speed: 2,
+    bodyColor: 0x66bb6a,
+    accentColor: 0xff69b4,
+    size: { w: 1.0, h: 1.6, d: 0.8 },
+    speed: 2.5,
     health: 40,
-    damage: 15,
+    damage: 12,
     spawnWeight: 3,
+    loot: [{ type: 'pink_brick', min: 1, max: 3 }],
   },
   {
     name: 'Lorax Lurker',
-    color: 0xffb74d,
-    size: { w: 0.8, h: 1.2, d: 0.8 },
-    speed: 4.5,
+    bodyColor: 0xffb74d,
+    accentColor: 0xff9ed8,
+    size: { w: 0.7, h: 1.0, d: 0.7 },
+    speed: 5,
     health: 20,
-    damage: 8,
+    damage: 6,
     spawnWeight: 5,
+    loot: [{ type: 'cotton_candy_wood', min: 1, max: 2 }],
   },
   {
     name: 'Grinch Creeper',
-    color: 0x4caf50,
-    size: { w: 0.7, h: 2.2, d: 0.7 },
-    speed: 3,
+    bodyColor: 0x4caf50,
+    accentColor: 0xcc66ff,
+    size: { w: 0.6, h: 2.0, d: 0.6 },
+    speed: 3.5,
     health: 30,
-    damage: 12,
+    damage: 10,
     spawnWeight: 2,
+    loot: [{ type: 'crystal_sugar', min: 1, max: 2 }],
   },
   {
     name: 'Sour Patch Kid',
-    color: 0xff5252,
-    size: { w: 0.5, h: 0.7, d: 0.5 },
-    speed: 5,
-    health: 10,
-    damage: 5,
+    bodyColor: 0xff5252,
+    accentColor: 0xffff44,
+    size: { w: 0.45, h: 0.6, d: 0.45 },
+    speed: 6,
+    health: 8,
+    damage: 4,
     spawnWeight: 8,
+    loot: [{ type: 'gummy_block', min: 1, max: 1 }],
   },
 ];
 
-const MAX_MONSTERS = 15;
-const SPAWN_RADIUS_MIN = 15;
-const SPAWN_RADIUS_MAX = 30;
-const SPAWN_INTERVAL = 3; // seconds
+const MAX_MONSTERS = 12;
+const SPAWN_RADIUS_MIN = 20;
+const SPAWN_RADIUS_MAX = 35;
+const SPAWN_INTERVAL = 2.5;
 
 export class MonsterSpawner {
   constructor(scene, world, player) {
@@ -54,40 +62,28 @@ export class MonsterSpawner {
   }
 
   update(delta, dayNight) {
-    // Only spawn at night
     if (dayNight.isDay) {
-      // Despawn monsters at dawn
-      if (this.monsters.length > 0) {
-        this.despawnAll();
-      }
+      if (this.monsters.length > 0) this.despawnAll();
       return;
     }
 
-    // Spawn timer
     this.spawnTimer += delta;
     if (this.spawnTimer >= SPAWN_INTERVAL && this.monsters.length < MAX_MONSTERS) {
       this.spawnTimer = 0;
       this.spawnMonster();
     }
 
-    // Update each monster
     for (let i = this.monsters.length - 1; i >= 0; i--) {
       const monster = this.monsters[i];
       this.updateMonster(monster, delta);
 
-      // Remove dead monsters
       if (monster.health <= 0) {
-        this.scene.remove(monster.mesh);
-        if (monster.glowLight) this.scene.remove(monster.glowLight);
-        this.monsters.splice(i, 1);
-        // Drop loot
-        this.dropLoot(monster);
+        this.killMonster(monster, i);
       }
     }
   }
 
   spawnMonster() {
-    // Pick random type weighted by spawnWeight
     const totalWeight = MONSTER_TYPES.reduce((sum, t) => sum + t.spawnWeight, 0);
     let roll = Math.random() * totalWeight;
     let type = MONSTER_TYPES[0];
@@ -96,136 +92,183 @@ export class MonsterSpawner {
       if (roll <= 0) { type = t; break; }
     }
 
-    // Random position around player
     const angle = Math.random() * Math.PI * 2;
     const dist = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
     const x = this.player.position.x + Math.cos(angle) * dist;
     const z = this.player.position.z + Math.sin(angle) * dist;
     const y = this.world.getSurfaceHeight(x, z) + 1;
 
-    // Create monster mesh (simple box for now — will be replaced with models)
-    const geo = new THREE.BoxGeometry(type.size.w, type.size.h, type.size.d);
-    const mat = new THREE.MeshLambertMaterial({ color: type.color });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y + type.size.h / 2, z);
-    mesh.castShadow = true;
-    this.scene.add(mesh);
+    // Body
+    const bodyGeo = new THREE.BoxGeometry(type.size.w, type.size.h * 0.7, type.size.d);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: type.bodyColor,
+      roughness: 0.6,
+      metalness: 0,
+      emissive: type.bodyColor,
+      emissiveIntensity: 0.15,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
 
-    // Eyes (two small white boxes)
-    const eyeGeo = new THREE.BoxGeometry(0.15, 0.1, 0.05);
+    // Head
+    const headSize = type.size.w * 0.8;
+    const headGeo = new THREE.BoxGeometry(headSize, headSize, headSize * 0.9);
+    const headMat = new THREE.MeshStandardMaterial({
+      color: type.bodyColor,
+      roughness: 0.5,
+      emissive: type.bodyColor,
+      emissiveIntensity: 0.15,
+    });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = type.size.h * 0.35 + headSize * 0.4;
+
+    // Eyes — glowing
+    const eyeGeo = new THREE.SphereGeometry(headSize * 0.15, 6, 6);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const pupilGeo = new THREE.SphereGeometry(headSize * 0.08, 6, 6);
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.15, type.size.h * 0.3, type.size.d / 2 + 0.01);
-    rightEye.position.set(0.15, type.size.h * 0.3, type.size.d / 2 + 0.01);
-    mesh.add(leftEye);
-    mesh.add(rightEye);
+    const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
+    const rightPupil = new THREE.Mesh(pupilGeo, pupilMat);
 
-    // Neon glow at night
-    const glowLight = new THREE.PointLight(type.color, 0.5, 8);
-    glowLight.position.copy(mesh.position);
+    leftEye.position.set(-headSize * 0.25, headSize * 0.1, headSize * 0.4);
+    rightEye.position.set(headSize * 0.25, headSize * 0.1, headSize * 0.4);
+    leftPupil.position.set(-headSize * 0.25, headSize * 0.1, headSize * 0.48);
+    rightPupil.position.set(headSize * 0.25, headSize * 0.1, headSize * 0.48);
+
+    head.add(leftEye, rightEye, leftPupil, rightPupil);
+
+    // Preppy accessory — bow or headband
+    const accGeo = new THREE.BoxGeometry(headSize * 0.4, headSize * 0.15, headSize * 0.1);
+    const accMat = new THREE.MeshStandardMaterial({ color: type.accentColor, roughness: 0.3 });
+    const accessory = new THREE.Mesh(accGeo, accMat);
+    accessory.position.set(0, headSize * 0.45, 0);
+    head.add(accessory);
+
+    // Group
+    const group = new THREE.Group();
+    group.add(body, head);
+    group.position.set(x, y + type.size.h / 2, z);
+    group.castShadow = true;
+    this.scene.add(group);
+
+    // Glow light
+    const glowLight = new THREE.PointLight(type.bodyColor, 0.4, 6);
+    glowLight.position.copy(group.position);
     this.scene.add(glowLight);
 
-    const monster = {
-      mesh,
+    this.monsters.push({
+      group,
+      body,
+      head,
       glowLight,
       type,
       health: type.health,
       speed: type.speed,
       damage: type.damage,
       attackCooldown: 0,
-      name: type.name,
-    };
-
-    this.monsters.push(monster);
+      walkCycle: Math.random() * Math.PI * 2,
+    });
   }
 
   updateMonster(monster, delta) {
-    // Move toward player
     const dir = new THREE.Vector3();
-    dir.subVectors(this.player.position, monster.mesh.position);
+    dir.subVectors(this.player.position, monster.group.position);
     dir.y = 0;
     const distance = dir.length();
     dir.normalize();
 
-    // Don't enter houses (check if player is inside a structure)
-    // Simple version: just chase the player
-    if (distance > 1.5) {
-      monster.mesh.position.x += dir.x * monster.speed * delta;
-      monster.mesh.position.z += dir.z * monster.speed * delta;
+    // Move toward player
+    if (distance > 1.8) {
+      monster.group.position.x += dir.x * monster.speed * delta;
+      monster.group.position.z += dir.z * monster.speed * delta;
 
-      // Update ground height
-      const groundY = this.world.getSurfaceHeight(monster.mesh.position.x, monster.mesh.position.z) + 1;
-      monster.mesh.position.y = groundY + monster.type.size.h / 2;
+      const groundY = this.world.getSurfaceHeight(monster.group.position.x, monster.group.position.z) + 1;
+      monster.group.position.y = groundY + monster.type.size.h / 2;
 
       // Face player
-      monster.mesh.lookAt(
+      const lookTarget = new THREE.Vector3(
         this.player.position.x,
-        monster.mesh.position.y,
+        monster.group.position.y,
         this.player.position.z
       );
+      monster.group.lookAt(lookTarget);
     }
 
-    // Update glow light position
-    if (monster.glowLight) {
-      monster.glowLight.position.copy(monster.mesh.position);
-    }
+    // Walk animation — bob up and down + sway
+    monster.walkCycle += delta * monster.speed * 2;
+    monster.body.position.y = Math.sin(monster.walkCycle) * 0.08;
+    monster.head.rotation.z = Math.sin(monster.walkCycle * 0.7) * 0.05;
 
-    // Attack player if close enough
+    // Update glow
+    monster.glowLight.position.copy(monster.group.position);
+    monster.glowLight.position.y += 0.5;
+
+    // Attack
     monster.attackCooldown = Math.max(0, monster.attackCooldown - delta);
-    if (distance < 2 && monster.attackCooldown <= 0) {
+    if (distance < 2.2 && monster.attackCooldown <= 0) {
       this.player.takeDamage(monster.damage);
-      monster.attackCooldown = 1.5;
+      monster.attackCooldown = 1.2;
 
-      // Knockback visual - flash red
-      monster.mesh.material.emissive = new THREE.Color(0xff0000);
+      // Lunge animation
+      monster.body.material.emissiveIntensity = 0.6;
       setTimeout(() => {
-        if (monster.mesh.material) {
-          monster.mesh.material.emissive = new THREE.Color(0x000000);
-        }
-      }, 200);
+        if (monster.body.material) monster.body.material.emissiveIntensity = 0.15;
+      }, 150);
+    }
+  }
+
+  killMonster(monster, index) {
+    // Drop loot
+    for (const loot of monster.type.loot) {
+      const count = loot.min + Math.floor(Math.random() * (loot.max - loot.min + 1));
+      this.player.inventory.add(loot.type, count);
     }
 
-    // Bobbing animation
-    monster.mesh.position.y += Math.sin(Date.now() * 0.003 + monster.mesh.id) * 0.01;
+    this.scene.remove(monster.group);
+    this.scene.remove(monster.glowLight);
+    monster.glowLight.dispose();
+    this.monsters.splice(index, 1);
   }
 
-  dropLoot(monster) {
-    // Add loot to player inventory based on monster type
-    this.player.inventory.add('cotton_candy_wood', 1 + Math.floor(Math.random() * 3));
-  }
-
-  despawnAll() {
-    for (const monster of this.monsters) {
-      this.scene.remove(monster.mesh);
-      if (monster.glowLight) this.scene.remove(monster.glowLight);
-    }
-    this.monsters = [];
-  }
-
-  // Called when player attacks in a direction
+  // Called by player attack system
   attackMonstersInRange(origin, direction, range, damage) {
+    let hitAny = false;
     for (const monster of this.monsters) {
-      const toMonster = new THREE.Vector3().subVectors(monster.mesh.position, origin);
+      const toMonster = new THREE.Vector3().subVectors(monster.group.position, origin);
       const dist = toMonster.length();
       if (dist > range) continue;
 
       toMonster.normalize();
       const dot = toMonster.dot(direction);
-      if (dot > 0.5) { // within ~60 degree cone
+      if (dot > 0.4) {
         monster.health -= damage;
+        hitAny = true;
 
         // Knockback
-        monster.mesh.position.addScaledVector(toMonster, 2);
+        monster.group.position.addScaledVector(toMonster, 1.5);
 
-        // Hit flash
-        monster.mesh.material.emissive = new THREE.Color(0xffffff);
+        // Flash white
+        monster.body.material.color.setHex(0xffffff);
+        monster.body.material.emissiveIntensity = 1;
         setTimeout(() => {
-          if (monster.mesh.material) {
-            monster.mesh.material.emissive = new THREE.Color(0x000000);
+          if (monster.body.material) {
+            monster.body.material.color.setHex(monster.type.bodyColor);
+            monster.body.material.emissiveIntensity = 0.15;
           }
-        }, 150);
+        }, 120);
       }
     }
+    return hitAny;
+  }
+
+  despawnAll() {
+    for (const monster of this.monsters) {
+      this.scene.remove(monster.group);
+      this.scene.remove(monster.glowLight);
+      monster.glowLight.dispose();
+    }
+    this.monsters = [];
   }
 }
