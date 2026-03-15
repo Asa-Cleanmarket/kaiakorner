@@ -14,6 +14,9 @@ export class TouchControls {
     this.lookTouchId = null;
     this.lookLast = { x: 0, y: 0 };
 
+    // Build/break mode
+    this.buildMode = true; // true = build, false = break
+
     // Build the UI
     this._createUI();
     this._setupEvents();
@@ -26,9 +29,14 @@ export class TouchControls {
     this.container.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20;pointer-events:none;';
     document.body.appendChild(this.container);
 
+    // === LOOK AREA: covers the screen for touch-look (behind buttons) ===
+    this.lookArea = document.createElement('div');
+    this.lookArea.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:auto;touch-action:none;z-index:0;';
+    this.container.appendChild(this.lookArea);
+
     // === LEFT SIDE: Virtual Joystick ===
     this.joystickArea = document.createElement('div');
-    this.joystickArea.style.cssText = 'position:absolute;bottom:20px;left:20px;width:140px;height:140px;pointer-events:auto;touch-action:none;';
+    this.joystickArea.style.cssText = 'position:absolute;bottom:20px;left:20px;width:140px;height:140px;pointer-events:auto;touch-action:none;z-index:1;';
     this.container.appendChild(this.joystickArea);
 
     this.joystickBase = document.createElement('div');
@@ -40,7 +48,7 @@ export class TouchControls {
     this.joystickArea.appendChild(this.joystickThumb);
 
     // === RIGHT SIDE: Action Buttons ===
-    const btnStyle = 'pointer-events:auto;touch-action:none;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;font-weight:bold;font-size:11px;color:#fff;text-shadow:0 0 4px rgba(0,0,0,0.8);user-select:none;-webkit-user-select:none;';
+    const btnStyle = 'pointer-events:auto;touch-action:none;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;font-weight:bold;font-size:11px;color:#fff;text-shadow:0 0 4px rgba(0,0,0,0.8);user-select:none;-webkit-user-select:none;z-index:1;';
 
     // Jump button (bottom right)
     this.jumpBtn = document.createElement('div');
@@ -54,7 +62,13 @@ export class TouchControls {
     this.attackBtn.textContent = 'ATK';
     this.container.appendChild(this.attackBtn);
 
-    // Place/Break button
+    // Build/Break toggle button — tapping toggles between BUILD and BREAK
+    this.modeBtn = document.createElement('div');
+    this.modeBtn.style.cssText = btnStyle + 'position:absolute;bottom:160px;right:85px;width:50px;height:50px;background:rgba(68,187,255,0.3);border:2px solid rgba(68,187,255,0.6);font-size:8px;';
+    this.modeBtn.textContent = 'BUILD';
+    this.container.appendChild(this.modeBtn);
+
+    // Action button (place or break depending on mode)
     this.placeBtn = document.createElement('div');
     this.placeBtn.style.cssText = btnStyle + 'position:absolute;bottom:90px;right:15px;background:rgba(123,104,238,0.3);border:2px solid rgba(123,104,238,0.6);font-size:9px;';
     this.placeBtn.textContent = 'PLACE';
@@ -62,7 +76,7 @@ export class TouchControls {
 
     // Eat button (top of action cluster)
     this.eatBtn = document.createElement('div');
-    this.eatBtn.style.cssText = btnStyle + 'position:absolute;bottom:160px;right:50px;width:50px;height:50px;background:rgba(255,204,0,0.3);border:2px solid rgba(255,204,0,0.6);font-size:10px;';
+    this.eatBtn.style.cssText = btnStyle + 'position:absolute;bottom:160px;right:15px;width:50px;height:50px;background:rgba(255,204,0,0.3);border:2px solid rgba(255,204,0,0.6);font-size:10px;';
     this.eatBtn.textContent = 'EAT';
     this.container.appendChild(this.eatBtn);
 
@@ -75,7 +89,7 @@ export class TouchControls {
     // Inventory slot buttons (bottom center, smaller)
     this.slotBtns = [];
     const slotContainer = document.createElement('div');
-    slotContainer.style.cssText = 'position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:2px;pointer-events:auto;touch-action:none;';
+    slotContainer.style.cssText = 'position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:2px;pointer-events:auto;touch-action:none;z-index:1;';
     for (let i = 0; i < 9; i++) {
       const btn = document.createElement('div');
       btn.style.cssText = 'width:30px;height:24px;border-radius:4px;background:rgba(20,10,40,0.6);border:1px solid rgba(123,104,238,0.4);display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;font-size:9px;color:rgba(255,182,213,0.6);user-select:none;-webkit-user-select:none;';
@@ -100,64 +114,58 @@ export class TouchControls {
   }
 
   _setupEvents() {
-    // Prevent default on all touch controls to avoid scrolling
-    this.container.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-    this.container.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    // === LOOK AREA: touch drag to look around ===
+    this.lookArea.addEventListener('touchstart', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (this.lookTouchId === null) {
+          this.lookTouchId = t.identifier;
+          this.lookLast = { x: t.clientX, y: t.clientY };
+        }
+      }
+    }, { passive: false });
+
+    this.lookArea.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.lookTouchId) {
+          const dx = t.clientX - this.lookLast.x;
+          const dy = t.clientY - this.lookLast.y;
+          this.input.mouseDelta.x += dx * 1.2;
+          this.input.mouseDelta.y += dy * 1.2;
+          this.lookLast = { x: t.clientX, y: t.clientY };
+        }
+      }
+    }, { passive: false });
+
+    this.lookArea.addEventListener('touchend', e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.lookTouchId) {
+          this.lookTouchId = null;
+        }
+      }
+    });
+    this.lookArea.addEventListener('touchcancel', e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.lookTouchId) {
+          this.lookTouchId = null;
+        }
+      }
+    });
 
     // === JOYSTICK ===
     this.joystickArea.addEventListener('touchstart', e => {
+      e.preventDefault();
+      e.stopPropagation();
       if (this.joystickTouchId !== null) return;
       const t = e.changedTouches[0];
       this.joystickTouchId = t.identifier;
       const rect = this.joystickBase.getBoundingClientRect();
       this.joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
       this._updateJoystick(t.clientX, t.clientY);
-    });
+    }, { passive: false });
 
-    // === LOOK (touch on canvas / right side) ===
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      canvas.addEventListener('touchstart', e => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          // Only use right-half touches for look, left-half can also be look
-          if (this.lookTouchId === null) {
-            this.lookTouchId = t.identifier;
-            this.lookLast = { x: t.clientX, y: t.clientY };
-          }
-        }
-      }, { passive: false });
-
-      canvas.addEventListener('touchmove', e => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          if (t.identifier === this.lookTouchId) {
-            const dx = t.clientX - this.lookLast.x;
-            const dy = t.clientY - this.lookLast.y;
-            this.input.mouseDelta.x += dx * 1.2;
-            this.input.mouseDelta.y += dy * 1.2;
-            this.lookLast = { x: t.clientX, y: t.clientY };
-          }
-        }
-      }, { passive: false });
-
-      canvas.addEventListener('touchend', e => {
-        for (const t of e.changedTouches) {
-          if (t.identifier === this.lookTouchId) {
-            this.lookTouchId = null;
-          }
-        }
-      });
-      canvas.addEventListener('touchcancel', e => {
-        for (const t of e.changedTouches) {
-          if (t.identifier === this.lookTouchId) {
-            this.lookTouchId = null;
-          }
-        }
-      });
-    }
-
-    // Global touch move/end for joystick
+    // Global touch move/end for joystick + look
     document.addEventListener('touchmove', e => {
       for (const t of e.changedTouches) {
         if (t.identifier === this.joystickTouchId) {
@@ -182,6 +190,25 @@ export class TouchControls {
         }
       }
     });
+
+    // === MODE TOGGLE (BUILD/BREAK) ===
+    this.modeBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.buildMode = !this.buildMode;
+      this.modeBtn.textContent = this.buildMode ? 'BUILD' : 'BREAK';
+      this.modeBtn.style.background = this.buildMode ? 'rgba(68,187,255,0.3)' : 'rgba(255,68,68,0.3)';
+      this.modeBtn.style.borderColor = this.buildMode ? 'rgba(68,187,255,0.6)' : 'rgba(255,68,68,0.6)';
+      this.placeBtn.textContent = this.buildMode ? 'PLACE' : 'BREAK';
+      this.placeBtn.style.background = this.buildMode ? 'rgba(123,104,238,0.3)' : 'rgba(255,68,68,0.3)';
+      this.placeBtn.style.borderColor = this.buildMode ? 'rgba(123,104,238,0.6)' : 'rgba(255,68,68,0.6)';
+      this.modeBtn.style.transform = 'scale(0.9)';
+      this.modeBtn.style.filter = 'brightness(1.5)';
+      setTimeout(() => {
+        this.modeBtn.style.transform = '';
+        this.modeBtn.style.filter = '';
+      }, 100);
+    }, { passive: false });
 
     // === ACTION BUTTONS ===
     this._holdButton(this.jumpBtn, 'Space');
@@ -239,7 +266,13 @@ export class TouchControls {
       if (key === '_leftClick') {
         this.input.mouseButtons.left = true;
       } else if (key === '_rightClick') {
-        this.input.mouseButtons.right = true;
+        // In break mode, the place button triggers left-click (break) instead
+        if (!this.buildMode) {
+          this.input.mouseButtons.left = true;
+          this.input._breakMode = true;
+        } else {
+          this.input.mouseButtons.right = true;
+        }
       } else {
         this.input.keys[key] = true;
         this.input._justPressed[key] = true;
@@ -253,6 +286,8 @@ export class TouchControls {
         this.input.mouseButtons.left = false;
       } else if (key === '_rightClick') {
         this.input.mouseButtons.right = false;
+        this.input.mouseButtons.left = false;
+        this.input._breakMode = false;
       } else {
         this.input.keys[key] = false;
       }

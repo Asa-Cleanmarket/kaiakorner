@@ -287,20 +287,26 @@ export class Game {
     // Crafting toggle
     if (this.input.justPressed('KeyC')) {
       this.crafting.toggle();
+      // Release pointer lock so player can click on recipes (desktop)
+      if (!this.isMobile && this.crafting.isOpen && document.pointerLockElement) {
+        document.exitPointerLock();
+      }
     }
 
-    // NPC trading with T key
-    if (this.input.justPressed('KeyT') && this.gumsworth.interactable) {
-      // Auto-execute first available trade
-      const trades = this.gumsworth.getTrades();
-      for (const trade of trades) {
-        if (this.inventory.getCount(trade.give.type) >= trade.give.count) {
-          this.gumsworth.executeTrade(trade, this.inventory);
-          this.cheatMessage = `TRADED! +${trade.get.count} ${trade.get.type.replace(/_/g, ' ')}`;
-          this.cheatMessageTimer = 2;
-          break;
+    // NPC trading with T key — show trade panel
+    if (this.input.justPressed('KeyT')) {
+      if (this.gumsworth.interactable) {
+        this.tradeOpen = !this.tradeOpen;
+        if (!this.isMobile && this.tradeOpen && document.pointerLockElement) {
+          document.exitPointerLock();
         }
+      } else {
+        this.tradeOpen = false;
       }
+    }
+    // Close trade panel if Gumsworth walks away
+    if (this.tradeOpen && !this.gumsworth.interactable) {
+      this.tradeOpen = false;
     }
 
     // Progression
@@ -332,7 +338,7 @@ export class Game {
     }
     if (this.progression.badgeTimer <= 3.9) this._badgeSoundPlayed = false;
 
-    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth, this.progression);
+    this.ui.update(this.dayNight, this.player, this.cheatMessage, this.cheatMessageTimer, this.crafting, this.gumsworth, this.progression, this.tradeOpen);
     if (this.cheatMessageTimer > 0) this.cheatMessageTimer -= delta;
 
     this.updateLighting(elapsed);

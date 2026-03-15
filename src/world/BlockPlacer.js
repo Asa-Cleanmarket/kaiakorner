@@ -89,8 +89,13 @@ export class BlockPlacer {
         this.breakHighlight.visible = false;
       }
 
-      // Left click or right click: place block when holding a block
-      const wantsPlace = (input.mouseButtons.left || input.mouseButtons.right) && !isWeapon && this.inventory.getSelectedBlockType();
+      // Determine if in break mode (mobile toggle or desktop right-click)
+      const inBreakMode = input._breakMode === true;
+      const hasBlock = this.inventory.getSelectedBlockType();
+
+      // Place block: left-click with block selected (not in break mode), or right-click
+      const wantsPlace = !isWeapon && hasBlock && !inBreakMode &&
+        (input.mouseButtons.left || input.mouseButtons.right);
       if (wantsPlace) {
         this.placeTimer += 0.016;
         if (this.placeTimer > 0.15) {
@@ -99,12 +104,11 @@ export class BlockPlacer {
           this.justPlaced = true;
         }
       } else {
-        this.placeTimer = 0.1; // fast first click
+        this.placeTimer = 0.1;
       }
 
-      // Right click: break block (when holding a block item)
-      // Left click breaks only when NO item is selected (bare hands)
-      const wantsBreak = !isWeapon && !this.inventory.getSelectedBlockType() && input.mouseButtons.left;
+      // Break block: break mode active, or bare hands left-click, or desktop X key
+      const wantsBreak = !isWeapon && (inBreakMode || (!hasBlock && input.mouseButtons.left));
       if (wantsBreak) {
         this.breakTimer += 0.016;
         if (this.breakTimer > 0.2) {
@@ -113,7 +117,7 @@ export class BlockPlacer {
           this.justBroke = true;
         }
       } else {
-        this.breakTimer = 0.15; // fast first click
+        this.breakTimer = 0.15;
       }
     } else {
       this.previewGroup.visible = false;

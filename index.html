@@ -303,10 +303,16 @@
       <div id="boss-bar-fill" style="height:100%;width:100%;background:linear-gradient(90deg,#cc44ff,#dd66ff);transition:width 0.3s;"></div>
     </div>
   </div>
-  <div id="crafting-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,0,30,0.9);border:2px solid #ff69b4;border-radius:8px;padding:20px;z-index:14;display:none;min-width:300px;max-width:90%;">
+  <div id="crafting-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,0,30,0.9);border:2px solid #ff69b4;border-radius:8px;padding:20px;z-index:14;display:none;min-width:300px;max-width:90%;pointer-events:auto;">
     <div style="color:#ff69b4;font-family:'Courier New',monospace;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;">CRAFTING</div>
     <div id="crafting-recipes" style="font-family:'Courier New',monospace;font-size:12px;"></div>
     <div style="color:#666;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-top:12px;">Press C to close • Click recipe to craft</div>
+  </div>
+  <div id="trade-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,0,30,0.9);border:2px solid #ffaa33;border-radius:8px;padding:20px;z-index:14;display:none;min-width:320px;max-width:90%;pointer-events:auto;">
+    <div style="color:#ffaa33;font-family:'Courier New',monospace;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:4px;">GUMSWORTH'S TRADES</div>
+    <div style="color:#888;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-bottom:12px;">Click a trade to swap items!</div>
+    <div id="trade-list" style="font-family:'Courier New',monospace;font-size:12px;"></div>
+    <div style="color:#666;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-top:12px;">Press T to close</div>
   </div>
   <div id="action-msg" style="position:fixed;bottom:85px;left:50%;transform:translateX(-50%);color:#44ff88;font-family:'Courier New',monospace;font-size:16px;z-index:13;text-shadow:0 0 10px rgba(68,255,136,0.6);display:none;letter-spacing:2px;text-align:center;"></div>
   <canvas id="minimap" width="120" height="120" style="position:fixed;bottom:80px;right:10px;z-index:11;border:2px solid rgba(255,105,180,0.5);border-radius:4px;background:rgba(0,0,0,0.3);image-rendering:pixelated;"></canvas>

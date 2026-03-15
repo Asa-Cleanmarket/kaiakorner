@@ -16,6 +16,8 @@ export class UIManager {
     this.npcIndicator = document.getElementById('npc-indicator');
     this.craftingPanel = document.getElementById('crafting-panel');
     this.craftingRecipes = document.getElementById('crafting-recipes');
+    this.tradePanel = document.getElementById('trade-panel');
+    this.tradeList = document.getElementById('trade-list');
     this.minimapCanvas = document.getElementById('minimap');
     this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
     this.minimapTimer = 0;
@@ -40,7 +42,7 @@ export class UIManager {
     this.initialized = true;
   }
 
-  update(dayNight, player, cheatMessage, cheatTimer, crafting, gumsworth, progression) {
+  update(dayNight, player, cheatMessage, cheatTimer, crafting, gumsworth, progression, tradeOpen) {
     if (!this.initialized) return;
 
     // Cheat code message
@@ -97,6 +99,16 @@ export class UIManager {
         this.renderCraftingRecipes(crafting);
       } else {
         this.craftingPanel.style.display = 'none';
+      }
+    }
+
+    // Trade panel
+    if (this.tradePanel && gumsworth) {
+      if (tradeOpen && gumsworth.interactable) {
+        this.tradePanel.style.display = 'block';
+        this.renderTrades(gumsworth);
+      } else {
+        this.tradePanel.style.display = 'none';
       }
     }
 
@@ -205,11 +217,11 @@ export class UIManager {
     this.minimapTimer -= 0.016;
     if (this.minimapCtx && this.minimapTimer <= 0) {
       this.minimapTimer = 0.5;
-      this.renderMinimap(player);
+      this.renderMinimap(player, this.game.gumsworth);
     }
   }
 
-  renderMinimap(player) {
+  renderMinimap(player, gumsworth) {
     const ctx = this.minimapCtx;
     const w = 120, h = 120;
     const scale = 4; // Each pixel = 4 blocks
@@ -275,6 +287,76 @@ export class UIManager {
     ctx.moveTo(ax, ay);
     ctx.lineTo(ax - headLen * Math.cos(angle + 0.5), ay - headLen * Math.sin(angle + 0.5));
     ctx.stroke();
+
+    // Gumsworth indicator (orange dot or arrow at edge)
+    if (gumsworth && gumsworth.active) {
+      const gx = (gumsworth.group.position.x - px) / scale + w / 2;
+      const gz = (gumsworth.group.position.z - pz) / scale + h / 2;
+
+      if (gx >= 0 && gx < w && gz >= 0 && gz < h) {
+        // On-screen: draw orange dot
+        ctx.fillStyle = '#ffaa33';
+        ctx.beginPath();
+        ctx.arc(gx, gz, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        // Off-screen: draw arrow at edge pointing toward Gumsworth
+        const gdx = gx - w / 2;
+        const gdz = gz - h / 2;
+        const ga = Math.atan2(gdz, gdx);
+        const edgeX = Math.max(4, Math.min(w - 4, w / 2 + Math.cos(ga) * (w / 2 - 4)));
+        const edgeZ = Math.max(4, Math.min(h - 4, h / 2 + Math.sin(ga) * (h / 2 - 4)));
+        ctx.fillStyle = '#ffaa33';
+        ctx.beginPath();
+        ctx.arc(edgeX, edgeZ, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Small direction arrow
+        ctx.beginPath();
+        ctx.moveTo(edgeX, edgeZ);
+        ctx.lineTo(edgeX + Math.cos(ga) * 5, edgeZ + Math.sin(ga) * 5);
+        ctx.strokeStyle = '#ffaa33';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+  }
+
+  renderTrades(gumsworth) {
+    if (!this.tradeList) return;
+    const trades = gumsworth.getTrades();
+    const inventory = this.game.inventory;
+    let html = '';
+    for (let i = 0; i < trades.length; i++) {
+      const t = trades[i];
+      const have = inventory.getCount(t.give.type);
+      const canTrade = have >= t.give.count;
+      const giveName = BLOCK_NAMES[t.give.type] || ITEM_NAMES[t.give.type] || t.give.type;
+      const getName = BLOCK_NAMES[t.get.type] || ITEM_NAMES[t.get.type] || t.get.type;
+      const color = canTrade ? '#44ff88' : '#666';
+      const cursor = canTrade ? 'cursor:pointer;' : '';
+      html += `<div data-trade="${i}" style="color:${color};padding:6px 4px;border-bottom:1px solid #333;${cursor}" class="trade-row">`;
+      html += `<span style="color:#ff8866">${t.give.count}x ${giveName}</span>`;
+      html += ` <span style="color:#888">→</span> `;
+      html += `<span style="color:#ffcc44">${t.get.count}x ${getName}</span>`;
+      if (!canTrade) html += ` <span style="color:#555;font-size:10px">(need ${t.give.count - have} more)</span>`;
+      html += `</div>`;
+    }
+    this.tradeList.innerHTML = html;
+
+    // Click handlers
+    this.tradeList.querySelectorAll('.trade-row').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.trade);
+        const trade = trades[idx];
+        if (trade && inventory.getCount(trade.give.type) >= trade.give.count) {
+          gumsworth.executeTrade(trade, inventory);
+          this.renderTrades(gumsworth);
+        }
+      });
+    });
   }
 
   renderCraftingRecipes(crafting) {
