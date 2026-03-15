@@ -19,7 +19,7 @@
       #inventory-bar { bottom: 30px !important; }
       #health-bar-container { bottom: 34px !important; left: 170px !important; width: 100px !important; height: 14px !important; }
       #health-text { bottom: 50px !important; left: 170px !important; font-size: 10px !important; }
-      #minimap { bottom: 50px !important; width: 80px !important; height: 80px !important; }
+      #minimap { top: 10px !important; left: 10px !important; bottom: auto !important; right: auto !important; width: 80px !important; height: 80px !important; }
       #start-screen h1 { font-size: 28px !important; }
       #tutorial-screen { font-size: 11px !important; }
     }
@@ -252,6 +252,34 @@
     <p>A Kaia Games Inc. Production</p>
     <span class="click-text">[ click to enter the cove ]</span>
   </div>
+  <div id="mp-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1a0a2e 0%,#2d1b4e 50%,#1a0a2e 100%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;font-family:'Courier New',monospace;">
+    <div style="max-width:400px;width:90%;text-align:center;">
+      <div style="color:#ff69b4;font-size:24px;letter-spacing:4px;margin-bottom:30px;text-shadow:0 0 15px rgba(255,105,180,0.5);">HOW DO YOU WANT TO PLAY?</div>
+      <div id="mp-menu" style="display:flex;flex-direction:column;gap:12px;">
+        <button id="mp-solo" style="background:rgba(68,255,136,0.15);border:2px solid #44ff88;color:#44ff88;padding:16px;border-radius:8px;font-family:'Courier New',monospace;font-size:16px;cursor:pointer;letter-spacing:2px;">PLAY SOLO</button>
+        <button id="mp-create" style="background:rgba(255,105,180,0.15);border:2px solid #ff69b4;color:#ff69b4;padding:16px;border-radius:8px;font-family:'Courier New',monospace;font-size:16px;cursor:pointer;letter-spacing:2px;">CREATE ROOM</button>
+        <button id="mp-join" style="background:rgba(123,104,238,0.15);border:2px solid #7b68ee;color:#7b68ee;padding:16px;border-radius:8px;font-family:'Courier New',monospace;font-size:16px;cursor:pointer;letter-spacing:2px;">JOIN ROOM</button>
+      </div>
+      <div id="mp-name-form" style="display:none;margin-top:20px;">
+        <div style="color:#ffb6d5;font-size:12px;margin-bottom:8px;">YOUR NAME:</div>
+        <input id="mp-name" type="text" maxlength="12" placeholder="Enter your name" style="width:100%;padding:12px;background:rgba(20,10,40,0.8);border:2px solid #ff69b4;border-radius:6px;color:#ffb6d5;font-family:'Courier New',monospace;font-size:14px;text-align:center;outline:none;" />
+      </div>
+      <div id="mp-code-form" style="display:none;margin-top:12px;">
+        <div style="color:#ffb6d5;font-size:12px;margin-bottom:8px;">ROOM CODE:</div>
+        <input id="mp-code" type="text" maxlength="4" placeholder="CAKE" style="width:120px;padding:12px;background:rgba(20,10,40,0.8);border:2px solid #7b68ee;border-radius:6px;color:#7b68ee;font-family:'Courier New',monospace;font-size:20px;text-align:center;text-transform:uppercase;outline:none;letter-spacing:4px;" />
+      </div>
+      <button id="mp-go" style="display:none;margin-top:16px;background:rgba(255,204,0,0.2);border:2px solid #ffcc00;color:#ffcc00;padding:14px 32px;border-radius:8px;font-family:'Courier New',monospace;font-size:14px;cursor:pointer;letter-spacing:2px;">GO!</button>
+      <div id="mp-status" style="color:#ffb6d5;font-size:12px;margin-top:16px;display:none;"></div>
+      <div id="mp-room-info" style="display:none;margin-top:20px;">
+        <div style="color:#ffcc00;font-size:14px;">ROOM CODE:</div>
+        <div id="mp-room-code" style="color:#ffcc00;font-size:36px;letter-spacing:8px;text-shadow:0 0 15px rgba(255,204,0,0.5);margin:8px 0;"></div>
+        <div style="color:#888;font-size:11px;">Share this code with friends!</div>
+        <div id="mp-players" style="color:#44ff88;font-size:12px;margin-top:12px;"></div>
+        <button id="mp-start" style="margin-top:16px;background:rgba(68,255,136,0.2);border:2px solid #44ff88;color:#44ff88;padding:14px 32px;border-radius:8px;font-family:'Courier New',monospace;font-size:14px;cursor:pointer;letter-spacing:2px;">START GAME</button>
+      </div>
+      <button id="mp-back" style="display:none;margin-top:20px;background:none;border:1px solid #555;color:#888;padding:8px 16px;border-radius:6px;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;">BACK</button>
+    </div>
+  </div>
   <div id="controls-toggle" onclick="document.getElementById('controls-panel').style.display = document.getElementById('controls-panel').style.display === 'block' ? 'none' : 'block'">? CONTROLS</div>
   <div id="controls-panel">
     <h3>CONTROLS</h3>
@@ -315,6 +343,7 @@
     <div style="color:#666;font-family:'Courier New',monospace;font-size:10px;text-align:center;margin-top:12px;">Press T to close</div>
   </div>
   <div id="action-msg" style="position:fixed;bottom:85px;left:50%;transform:translateX(-50%);color:#44ff88;font-family:'Courier New',monospace;font-size:16px;z-index:13;text-shadow:0 0 10px rgba(68,255,136,0.6);display:none;letter-spacing:2px;text-align:center;"></div>
+  <div id="mp-player-count" style="position:fixed;top:10px;left:50%;transform:translateX(-50%);color:#ffcc00;font-family:'Courier New',monospace;font-size:11px;z-index:11;text-shadow:0 0 6px rgba(255,204,0,0.4);display:none;letter-spacing:1px;"></div>
   <canvas id="minimap" width="120" height="120" style="position:fixed;bottom:80px;right:10px;z-index:11;border:2px solid rgba(255,105,180,0.5);border-radius:4px;background:rgba(0,0,0,0.3);image-rendering:pixelated;"></canvas>
   <div id="tutorial-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,5,25,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;pointer-events:auto;cursor:pointer;font-family:'Courier New',monospace;">
     <div style="max-width:600px;width:90%;padding:30px;">

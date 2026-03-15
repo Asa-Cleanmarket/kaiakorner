@@ -15,6 +15,7 @@ import { CraftingSystem } from '../systems/CraftingSystem.js';
 import { ProgressionSystem } from '../systems/ProgressionSystem.js';
 import { SoundManager } from '../systems/SoundManager.js';
 import { TouchControls } from './TouchControls.js';
+import { RemotePlayer } from '../multiplayer/RemotePlayer.js';
 
 export class Game {
   constructor() {
@@ -70,6 +71,12 @@ export class Game {
     this.monsterSpawner.sound = this.sound;
     this.crafting.progression = this.progression;
     this.crafting.sound = this.sound;
+    this.blockPlacer.game = this;
+
+    // Multiplayer
+    this.multiplayer = null;
+    this.remotePlayers = new Map();
+    this.playerCountEl = null;
 
     // Detect mobile/tablet
     this.isMobile = 'ontouchstart' in window && (navigator.maxTouchPoints > 0);
@@ -247,8 +254,80 @@ export class Game {
     this.world.generate(this.player.position);
     this.ui.init();
     this.dog.spawn(this.player.position);
+
+    // If multiplayer, wire up callbacks and apply initial state
+    if (this.multiplayer) {
+      this._setupMultiplayerCallbacks();
+      this.playerCountEl = document.getElementById('mp-player-count');
+      if (this.playerCountEl) {
+        this.playerCountEl.style.display = 'block';
+        this._updatePlayerCount();
+      }
+    }
+
     this.clock.start();
     this.animate();
+  }
+
+  initMultiplayer(client, playerName, existingPlayers, blockEdits) {
+    this.multiplayer = client;
+    this.playerName = playerName;
+
+    // Apply block edits from players who joined before us
+    if (blockEdits && blockEdits.length > 0) {
+      for (const [key, type] of blockEdits) {
+        const [x, y, z] = key.split(',').map(Number);
+        this.world.setBlock(x, y, z, type);
+      }
+    }
+
+    // Create remote players for those already in the room
+    if (existingPlayers) {
+      for (const p of existingPlayers) {
+        const rp = new RemotePlayer(this.scene, p.id, p.name);
+        this.remotePlayers.set(p.id, rp);
+      }
+    }
+  }
+
+  _setupMultiplayerCallbacks() {
+    this.multiplayer.onPlayerJoined((id, name) => {
+      const rp = new RemotePlayer(this.scene, id, name);
+      this.remotePlayers.set(id, rp);
+      this._updatePlayerCount();
+      this.cheatMessage = `${name} joined!`;
+      this.cheatMessageTimer = 3;
+    });
+
+    this.multiplayer.onPlayerLeft((id) => {
+      const rp = this.remotePlayers.get(id);
+      if (rp) {
+        rp.dispose();
+        this.remotePlayers.delete(id);
+      }
+      this._updatePlayerCount();
+    });
+
+    this.multiplayer.onPlayerUpdate((msg) => {
+      const rp = this.remotePlayers.get(msg.id);
+      if (rp) rp.applyUpdate(msg);
+    });
+
+    this.multiplayer.onBlockEdit((x, y, z, type) => {
+      this.world.setBlock(x, y, z, type);
+    });
+
+    this.multiplayer.onChatMessage((id, name, text) => {
+      this.cheatMessage = `${name}: ${text}`;
+      this.cheatMessageTimer = 4;
+    });
+  }
+
+  _updatePlayerCount() {
+    if (this.playerCountEl) {
+      const count = this.remotePlayers.size + 1;
+      this.playerCountEl.textContent = `${count}/4 PLAYERS`;
+    }
   }
 
   animate() {
@@ -264,6 +343,18 @@ export class Game {
     this.monsterSpawner.update(delta, this.dayNight);
     this.dog.update(delta, this.monsterSpawner, this.bossTaffy);
     this.particles.update(delta, this.player.position, this.dayNight);
+
+    // Multiplayer: send position and update remote players
+    if (this.multiplayer) {
+      const weaponType = this.inventory.getSelectedItem() || null;
+      this.multiplayer.sendPlayerUpdate(
+        this.player.position, this.player.yaw, this.player.pitch,
+        this.player.health, weaponType, this.player.isAttacking
+      );
+      for (const rp of this.remotePlayers.values()) {
+        rp.update(delta);
+      }
+    }
 
     // Gumsworth NPC — spawns periodically
     if (this.gumsTimer > 0) {
