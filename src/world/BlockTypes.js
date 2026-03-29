@@ -47,12 +47,22 @@ export const ITEM_TYPES = {
   LOLLIPOP_AXE: 'lollipop_axe',
   GUMBALL_LAUNCHER: 'gumball_launcher',
   CANDY_CANE_SWORD: 'candy_cane_sword',
+  STANLEY_SMASHER: 'stanley_smasher',
+  TAFFY_WHIP: 'taffy_whip',
+  SOUR_SPRAY: 'sour_spray',
+  POP_ROCK_LAUNCHER: 'pop_rock_launcher',
+  JAWBREAKER_MACE: 'jawbreaker_mace',
 };
 
 export const ITEM_NAMES = {
   [ITEM_TYPES.LOLLIPOP_AXE]: 'Lolli Axe',
   [ITEM_TYPES.GUMBALL_LAUNCHER]: 'Gumball',
   [ITEM_TYPES.CANDY_CANE_SWORD]: 'CC Sword',
+  [ITEM_TYPES.STANLEY_SMASHER]: 'Stanley',
+  [ITEM_TYPES.TAFFY_WHIP]: 'Taffy Whip',
+  [ITEM_TYPES.SOUR_SPRAY]: 'Sour Spray',
+  [ITEM_TYPES.POP_ROCK_LAUNCHER]: 'Pop Rocks',
+  [ITEM_TYPES.JAWBREAKER_MACE]: 'Jawbreaker',
 };
 
 export const WEAPON_STATS = {
@@ -76,6 +86,43 @@ export const WEAPON_STATS = {
     monsterDamage: 22,
     range: 3.5,
     cooldown: 0.3,
+    type: 'melee',
+  },
+  [ITEM_TYPES.STANLEY_SMASHER]: {
+    treeDamage: 4,
+    monsterDamage: 35,
+    range: 3.5,
+    cooldown: 0.8,
+    type: 'melee',
+  },
+  [ITEM_TYPES.TAFFY_WHIP]: {
+    treeDamage: 1,
+    monsterDamage: 18,
+    range: 6,
+    cooldown: 0.25,
+    type: 'melee',
+  },
+  [ITEM_TYPES.SOUR_SPRAY]: {
+    treeDamage: 0,
+    monsterDamage: 8,
+    range: 20,
+    cooldown: 0.12,
+    type: 'ranged',
+    projectileSpeed: 55,
+  },
+  [ITEM_TYPES.POP_ROCK_LAUNCHER]: {
+    treeDamage: 0,
+    monsterDamage: 28,
+    range: 25,
+    cooldown: 1.0,
+    type: 'ranged',
+    projectileSpeed: 30,
+  },
+  [ITEM_TYPES.JAWBREAKER_MACE]: {
+    treeDamage: 3,
+    monsterDamage: 25,
+    range: 4,
+    cooldown: 0.45,
     type: 'melee',
   },
 };

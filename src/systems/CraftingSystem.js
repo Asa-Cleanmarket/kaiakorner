@@ -107,6 +107,56 @@ export const RECIPES = [
       { type: BLOCK_TYPES.RAINBOW_BLOCK, count: 2 },
     ],
   },
+  {
+    name: 'Stanley Smasher',
+    result: ITEM_TYPES.STANLEY_SMASHER,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.CHOCOLATE_SLAB, count: 6 },
+      { type: BLOCK_TYPES.CANDY_CANE_BEAM, count: 4 },
+      { type: BLOCK_TYPES.CARAMEL_BLOCK, count: 3 },
+    ],
+  },
+  {
+    name: 'Taffy Whip',
+    result: ITEM_TYPES.TAFFY_WHIP,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.BUBBLEGUM_RUBBER, count: 5 },
+      { type: BLOCK_TYPES.GUMMY_BLOCK, count: 3 },
+      { type: BLOCK_TYPES.COTTON_CANDY_WOOD, count: 2 },
+    ],
+  },
+  {
+    name: 'Sour Spray',
+    result: ITEM_TYPES.SOUR_SPRAY,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.GLASS_CANDY, count: 4 },
+      { type: BLOCK_TYPES.PEPPERMINT_CRYSTAL, count: 3 },
+      { type: BLOCK_TYPES.CRYSTAL_SUGAR, count: 3 },
+    ],
+  },
+  {
+    name: 'Pop Rock Launcher',
+    result: ITEM_TYPES.POP_ROCK_LAUNCHER,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.GRAHAM_CRACKER, count: 5 },
+      { type: BLOCK_TYPES.JELLYBEAN_BRICK, count: 4 },
+      { type: BLOCK_TYPES.RAINBOW_BLOCK, count: 3 },
+    ],
+  },
+  {
+    name: 'Jawbreaker Mace',
+    result: ITEM_TYPES.JAWBREAKER_MACE,
+    resultCount: 1,
+    ingredients: [
+      { type: BLOCK_TYPES.CHOCOLATE_SLAB, count: 4 },
+      { type: BLOCK_TYPES.CRYSTAL_SUGAR, count: 4 },
+      { type: BLOCK_TYPES.GUMMY_BLOCK, count: 3 },
+    ],
+  },
 ];
 
 export class CraftingSystem {

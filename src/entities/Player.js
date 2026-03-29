@@ -112,6 +112,110 @@ export class Player {
     guard.position.z = 0.25;
     this.swordModel.add(blade, bladeStripe, swordHandle, guard);
 
+    // Stanley Smasher model: big chocolate hammer
+    this.smasherModel = new THREE.Group();
+    const smasherHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 0.55, 6),
+      new THREE.MeshStandardMaterial({ color: 0xd2a679, roughness: 0.5 })
+    );
+    smasherHandle.rotation.x = Math.PI / 2;
+    const smasherHead = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.22, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.4, emissive: 0x8b4513, emissiveIntensity: 0.05 })
+    );
+    smasherHead.position.z = -0.35;
+    const smasherStripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.23, 0.06, 0.31),
+      new THREE.MeshStandardMaterial({ color: 0xcc8833, roughness: 0.4 })
+    );
+    smasherStripe.position.z = -0.35;
+    this.smasherModel.add(smasherHandle, smasherHead, smasherStripe);
+
+    // Taffy Whip model: long pink stretchy whip
+    this.whipModel = new THREE.Group();
+    const whipHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.3, metalness: 0.3 })
+    );
+    whipHandle.rotation.x = Math.PI / 2;
+    whipHandle.position.z = 0.2;
+    const whipLash = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.015, 0.7, 6),
+      new THREE.MeshStandardMaterial({ color: 0xff66cc, roughness: 0.3, emissive: 0xff66cc, emissiveIntensity: 0.1 })
+    );
+    whipLash.rotation.x = Math.PI / 2;
+    whipLash.position.z = -0.2;
+    const whipTip = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 6, 6),
+      new THREE.MeshStandardMaterial({ color: 0xff99dd, roughness: 0.2, emissive: 0xff99dd, emissiveIntensity: 0.2 })
+    );
+    whipTip.position.z = -0.55;
+    this.whipModel.add(whipHandle, whipLash, whipTip);
+
+    // Sour Spray model: green spray gun
+    this.sourSprayModel = new THREE.Group();
+    const sprayBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.14, 0.4),
+      new THREE.MeshStandardMaterial({ color: 0x44cc44, roughness: 0.3 })
+    );
+    sprayBody.rotation.x = Math.PI / 2;
+    const sprayNozzle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.06, 0.15, 8),
+      new THREE.MeshStandardMaterial({ color: 0xccff44, roughness: 0.2, emissive: 0xccff44, emissiveIntensity: 0.15 })
+    );
+    sprayNozzle.rotation.x = Math.PI / 2;
+    sprayNozzle.position.z = -0.25;
+    const sprayTank = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 0.12, 8),
+      new THREE.MeshStandardMaterial({ color: 0x33aa33, roughness: 0.4 })
+    );
+    sprayTank.position.y = -0.1;
+    this.sourSprayModel.add(sprayBody, sprayNozzle, sprayTank);
+
+    // Pop Rock Launcher model: chunky cannon
+    this.popRockModel = new THREE.Group();
+    const prBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.1, 0.45, 8),
+      new THREE.MeshStandardMaterial({ color: 0xff9933, roughness: 0.3 })
+    );
+    prBody.rotation.x = Math.PI / 2;
+    const prBarrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.09, 0.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0xff5533, roughness: 0.3, emissive: 0xff5533, emissiveIntensity: 0.1 })
+    );
+    prBarrel.rotation.x = Math.PI / 2;
+    prBarrel.position.z = -0.3;
+    const prDot1 = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 6, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffff44, emissive: 0xffff44, emissiveIntensity: 0.3 })
+    );
+    prDot1.position.set(0.08, 0.05, 0);
+    const prDot2 = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 6, 6),
+      new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x44ff44, emissiveIntensity: 0.3 })
+    );
+    prDot2.position.set(-0.06, -0.06, -0.1);
+    this.popRockModel.add(prBody, prBarrel, prDot1, prDot2);
+
+    // Jawbreaker Mace model: handle + big striped sphere
+    this.maceModel = new THREE.Group();
+    const maceHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.45, 6),
+      new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.4 })
+    );
+    maceHandle.rotation.x = Math.PI / 2;
+    const maceBall = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 10, 10),
+      new THREE.MeshStandardMaterial({ color: 0xee3366, roughness: 0.2, emissive: 0xee3366, emissiveIntensity: 0.1 })
+    );
+    maceBall.position.z = -0.32;
+    const maceRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.18, 0.025, 6, 12),
+      new THREE.MeshStandardMaterial({ color: 0x4488ff, roughness: 0.2, emissive: 0x4488ff, emissiveIntensity: 0.1 })
+    );
+    maceRing.position.z = -0.32;
+    this.maceModel.add(maceHandle, maceBall, maceRing);
+
     // Bare fist model
     this.fistModel = new THREE.Mesh(
       new THREE.BoxGeometry(0.12, 0.12, 0.2),
@@ -556,6 +660,11 @@ export class Player {
     if (selected === 'lollipop_axe') targetModel = this.axeModel;
     else if (selected === 'gumball_launcher') targetModel = this.launcherModel;
     else if (selected === 'candy_cane_sword') targetModel = this.swordModel;
+    else if (selected === 'stanley_smasher') targetModel = this.smasherModel;
+    else if (selected === 'taffy_whip') targetModel = this.whipModel;
+    else if (selected === 'sour_spray') targetModel = this.sourSprayModel;
+    else if (selected === 'pop_rock_launcher') targetModel = this.popRockModel;
+    else if (selected === 'jawbreaker_mace') targetModel = this.maceModel;
 
     if (this.currentWeaponModel !== targetModel) {
       while (this.hand.children.length) this.hand.remove(this.hand.children[0]);
